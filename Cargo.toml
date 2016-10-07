@@ -1,0 +1,32 @@
+[package]
+name = "userutils"
+version = "0.1.0"
+
+[[bin]]
+name = "getty"
+path = "src/bin/getty.rs"
+
+[[bin]]
+name = "id"
+path = "src/bin/id.rs"
+
+[[bin]]
+name = "login"
+path = "src/bin/login.rs"
+
+[[bin]]
+name = "sudo"
+path = "src/bin/sudo.rs"
+
+[dependencies]
+syscall = { path = "../../syscall/" }
+termion = "*"
+
+[dependencies.octavo]
+git = "https://github.com/libOctavo/octavo"
+default-features = false
+features = ["digest"]
+
+[replace]
+"libc:0.2.16" = { git = "https://github.com/redox-os/liblibc.git", branch = "new_kernel" }
+"rustc-serialize:0.3.19" = { git = "https://github.com/redox-os/rustc-serialize.git" }
