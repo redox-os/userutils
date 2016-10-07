@@ -52,10 +52,6 @@ pub fn main() {
 
                     let password_hash = Passwd::encode(&password);
 
-                    if let Ok(mut debug) = File::open("debug:") {
-                        let _  = write!(debug, "{};{}\n", user, password_hash);
-                    }
-
                     for line in passwd_string.lines() {
                         if let Ok(passwd) = Passwd::parse(line) {
                             if user == passwd.user && password_hash == passwd.hash {

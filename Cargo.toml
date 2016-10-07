@@ -15,6 +15,10 @@ name = "login"
 path = "src/bin/login.rs"
 
 [[bin]]
+name = "su"
+path = "src/bin/su.rs"
+
+[[bin]]
 name = "sudo"
 path = "src/bin/sudo.rs"
 
