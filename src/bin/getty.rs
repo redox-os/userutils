@@ -27,7 +27,7 @@ pub fn main() {
         if let Ok(count) = syscall::fpath(0, &mut path) {
             let path_str = str::from_utf8(&path[..count]).unwrap_or("");
             let reference = path_str.split(':').nth(1).unwrap_or("");
-            let mut parts = reference.split('/');
+            let mut parts = reference.split('/').skip(1);
             env::set_var("COLUMNS", parts.next().unwrap_or("80"));
             env::set_var("LINES", parts.next().unwrap_or("30"));
         }
