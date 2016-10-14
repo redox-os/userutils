@@ -1,5 +1,3 @@
-#![feature(question_mark)]
-
 extern crate syscall;
 extern crate termion;
 extern crate userutils;

@@ -1,5 +1,3 @@
-#![feature(question_mark)]
-
 extern crate octavo;
 
 use octavo::octavo_digest::Digest;
