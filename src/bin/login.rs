@@ -76,7 +76,6 @@ pub fn main() {
 
                 command.env("USER", &user);
                 command.env("HOME", passwd.home);
-                command.env("PATH", "file:bin");
 
                 match command.spawn() {
                     Ok(mut child) => match child.wait() {
