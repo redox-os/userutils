@@ -3,6 +3,7 @@ name = "userutils"
 version = "0.1.0"
 dependencies = [
  "argon2rs 0.2.5 (git+https://github.com/redox-os/argon2rs.git)",
+ "rand 0.3.14 (git+https://github.com/redox-os/rand.git)",
  "syscall 0.1.0",
  "termion 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -40,6 +41,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 replace = "libc 0.2.17 (git+https://github.com/redox-os/liblibc.git?branch=new_kernel)"
 
 [[package]]
+name = "rand"
+version = "0.3.14"
+source = "git+https://github.com/redox-os/rand.git#ef2e59549dc2f78f9942ee978b2a31ca06e413b9"
+
+[[package]]
 name = "syscall"
 version = "0.1.0"
 
@@ -57,4 +63,5 @@ dependencies = [
 "checksum constant_time_eq 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "07dcb7959f0f6f1cf662f9a7ff389bcb919924d99ac41cf31f10d611d8721323"
 "checksum libc 0.2.17 (git+https://github.com/redox-os/liblibc.git?branch=new_kernel)" = "<none>"
 "checksum libc 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)" = "044d1360593a78f5c8e5e710beccdc24ab71d1f01bc19a29bcacdba22e8475d8"
+"checksum rand 0.3.14 (git+https://github.com/redox-os/rand.git)" = "<none>"
 "checksum termion 1.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ce9884af069456867e19fd5648b8908d5c9378f586b2659aaa6f3a4088fdb867"

@@ -27,8 +27,9 @@ name = "sudo"
 path = "src/bin/sudo.rs"
 
 [dependencies]
+rand = { git = "https://github.com/redox-os/rand.git" }
 syscall = { path = "../../syscall/" }
-termion = "*"
+termion = "1.1"
 
 [dependencies.argon2rs]
 git = "https://github.com/redox-os/argon2rs.git"
