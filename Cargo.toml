@@ -26,10 +26,9 @@ path = "src/bin/sudo.rs"
 syscall = { path = "../../syscall/" }
 termion = "*"
 
-[dependencies.octavo]
-git = "https://github.com/libOctavo/octavo"
+[dependencies.argon2rs]
+git = "https://github.com/redox-os/argon2rs.git"
 default-features = false
-features = ["digest"]
 
 [replace]
 "libc:0.2.17" = { git = "https://github.com/redox-os/liblibc.git", branch = "new_kernel" }

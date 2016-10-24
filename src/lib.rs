@@ -1,7 +1,4 @@
-extern crate octavo;
-
-use octavo::octavo_digest::Digest;
-use octavo::octavo_digest::sha3::Sha512;
+extern crate argon2rs;
 
 pub struct Passwd<'a> {
     pub user: &'a str,
@@ -14,13 +11,10 @@ pub struct Passwd<'a> {
 }
 
 impl<'a> Passwd<'a> {
+    //TODO: SALT
     pub fn encode(password: &str) -> String {
-        let mut output = vec![0; Sha512::output_bytes()];
-        let mut hash = Sha512::default();
-        hash.update(&password.as_bytes());
-        hash.result(&mut output);
         let mut encoded = String::new();
-        for b in output.iter() {
+        for b in argon2rs::argon2i_simple(password, "saltsalt").iter() {
             encoded.push_str(&format!("{:X}", b));
         }
         encoded

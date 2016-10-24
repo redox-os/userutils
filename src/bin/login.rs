@@ -28,7 +28,7 @@ pub fn main() {
         let user = (&mut stdin as &mut Read).read_line().unwrap().unwrap_or(String::new());
         if ! user.is_empty() {
             let mut passwd_string = String::new();
-            File::open("file:etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
+            File::open("/etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
 
             let mut passwd_option = None;
             for line in passwd_string.lines() {
