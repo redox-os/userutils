@@ -48,11 +48,9 @@ pub fn main() {
                     stdout.write(b"\n").unwrap();
                     let _ = stdout.flush();
 
-                    let password_hash = Passwd::encode(&password);
-
                     for line in passwd_string.lines() {
                         if let Ok(passwd) = Passwd::parse(line) {
-                            if user == passwd.user && password_hash == passwd.hash {
+                            if user == passwd.user && passwd.verify(&password) {
                                 passwd_option = Some(passwd);
                                 break;
                             }

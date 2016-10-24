@@ -17,7 +17,7 @@ pub fn main() {
 
     if uid != 0 {
         let mut passwd_string = String::new();
-        File::open("file:etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
+        File::open("/etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
 
         let mut passwd_option = None;
         for line in passwd_string.lines() {
@@ -32,7 +32,7 @@ pub fn main() {
         let passwd = passwd_option.expect("sudo: user not found in passwd");
 
         let mut group_string = String::new();
-        File::open("file:etc/group").unwrap().read_to_string(&mut group_string).unwrap();
+        File::open("/etc/group").unwrap().read_to_string(&mut group_string).unwrap();
 
         let mut group_option = None;
         for line in group_string.lines() {

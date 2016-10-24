@@ -26,7 +26,7 @@ pub fn main() {
     let uid = syscall::getuid().unwrap();
 
     let mut passwd_string = String::new();
-    File::open("file:etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
+    File::open("/etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
 
     let mut passwd_option = None;
     for line in passwd_string.lines() {
@@ -46,11 +46,9 @@ pub fn main() {
             stdout.write(b"\n").unwrap();
             let _ = stdout.flush();
 
-            let password_hash = Passwd::encode(&password);
-
             for line in passwd_string.lines() {
                 if let Ok(passwd) = Passwd::parse(line) {
-                    if user == passwd.user && password_hash == passwd.hash {
+                    if user == passwd.user && passwd.verify(&password) {
                         passwd_option = Some(passwd);
                         break;
                     }

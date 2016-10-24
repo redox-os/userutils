@@ -17,8 +17,6 @@ pub fn main() {
     let _ = syscall::open(&tty, syscall::flag::O_RDWR);
     let _ = syscall::open(&tty, syscall::flag::O_RDWR);
 
-    env::set_current_dir("file:").unwrap();
-
     env::set_var("TTY", &tty);
     {
         let mut path = [0; 4096];
@@ -37,7 +35,7 @@ pub fn main() {
         loop {
             //stdout.write(b"\x1Bc").unwrap();
             let _ = stdout.flush();
-            match Command::new("file:bin/login").spawn() {
+            match Command::new("login").spawn() {
                 Ok(mut child) => match child.wait() {
                     Ok(_status) => (), //println!("getty: waited for login: {:?}", status.code()),
                     Err(err) => panic!("getty: failed to wait for login: {}", err)

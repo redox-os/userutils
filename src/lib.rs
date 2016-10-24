@@ -1,5 +1,8 @@
 extern crate argon2rs;
 
+use argon2rs::verifier::Encoded;
+use argon2rs::{Argon2, Variant};
+
 pub struct Passwd<'a> {
     pub user: &'a str,
     pub hash: &'a str,
@@ -11,15 +14,6 @@ pub struct Passwd<'a> {
 }
 
 impl<'a> Passwd<'a> {
-    //TODO: SALT
-    pub fn encode(password: &str) -> String {
-        let mut encoded = String::new();
-        for b in argon2rs::argon2i_simple(password, "saltsalt").iter() {
-            encoded.push_str(&format!("{:X}", b));
-        }
-        encoded
-    }
-
     pub fn parse(line: &'a str) -> Result<Passwd<'a>, ()> {
         let mut parts = line.split(';');
 
@@ -40,6 +34,17 @@ impl<'a> Passwd<'a> {
             home: home,
             shell: shell
         })
+    }
+
+    pub fn encode(password: &str, salt: &str) -> String {
+        let a2 = Argon2::new(10, 1, 4096, Variant::Argon2i).unwrap();
+        let e = Encoded::new(a2, password.as_bytes(), salt.as_bytes(), &[], &[]);
+        String::from_utf8(e.to_u8()).unwrap()
+    }
+
+    pub fn verify(&self, password: &str) -> bool {
+        let e = Encoded::from_u8(self.hash.as_bytes()).unwrap();
+        e.verify(password.as_bytes())
     }
 }
 
