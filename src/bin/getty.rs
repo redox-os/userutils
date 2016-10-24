@@ -33,7 +33,7 @@ pub fn main() {
         let stdout = io::stdout();
         let mut stdout = stdout.lock();
         loop {
-            //stdout.write(b"\x1Bc").unwrap();
+            stdout.write(b"\x1Bc").unwrap();
             let _ = stdout.flush();
             match Command::new("login").spawn() {
                 Ok(mut child) => match child.wait() {
