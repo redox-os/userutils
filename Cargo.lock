@@ -4,7 +4,7 @@ version = "0.1.0"
 dependencies = [
  "argon2rs 0.2.5 (git+https://github.com/redox-os/argon2rs.git)",
  "rand 0.3.14 (git+https://github.com/redox-os/rand.git)",
- "syscall 0.1.0 (git+https://github.com/redox-os/syscall.git)",
+ "redox_syscall 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "termion 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -46,9 +46,9 @@ version = "0.3.14"
 source = "git+https://github.com/redox-os/rand.git#ef2e59549dc2f78f9942ee978b2a31ca06e413b9"
 
 [[package]]
-name = "syscall"
+name = "redox_syscall"
 version = "0.1.0"
-source = "git+https://github.com/redox-os/syscall.git#5a687dfeb578343431992f3a4d854f303a904486"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "termion"
@@ -65,5 +65,5 @@ dependencies = [
 "checksum libc 0.2.17 (git+https://github.com/redox-os/liblibc.git?branch=new_kernel)" = "<none>"
 "checksum libc 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)" = "044d1360593a78f5c8e5e710beccdc24ab71d1f01bc19a29bcacdba22e8475d8"
 "checksum rand 0.3.14 (git+https://github.com/redox-os/rand.git)" = "<none>"
-"checksum syscall 0.1.0 (git+https://github.com/redox-os/syscall.git)" = "<none>"
+"checksum redox_syscall 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "35a48131ab10dbeb17202bd1dcb9c9798963a58a50c9ec31640f237358832094"
 "checksum termion 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b38671f376ed6147ce4bc7df3f216f68631beb17433c205e2adb30a2d6b33e45"
