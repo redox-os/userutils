@@ -32,13 +32,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "libc"
 version = "0.2.17"
-source = "git+https://github.com/redox-os/liblibc.git?branch=new_kernel#e1481692c25d9be513f2f8bf8c77cce2573a6e9f"
+source = "git+https://github.com/redox-os/liblibc.git?branch=redox#4ddaf1f4c1675785cc8cc66c9ce7e5f7e7745789"
 
 [[package]]
 name = "libc"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-replace = "libc 0.2.17 (git+https://github.com/redox-os/liblibc.git?branch=new_kernel)"
+replace = "libc 0.2.17 (git+https://github.com/redox-os/liblibc.git?branch=redox)"
 
 [[package]]
 name = "rand"
@@ -62,7 +62,7 @@ dependencies = [
 "checksum argon2rs 0.2.5 (git+https://github.com/redox-os/argon2rs.git)" = "<none>"
 "checksum blake2-rfc 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)" = "0c6a476f32fef3402f1161f89d0d39822809627754a126f8441ff2a9d45e2d59"
 "checksum constant_time_eq 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "07dcb7959f0f6f1cf662f9a7ff389bcb919924d99ac41cf31f10d611d8721323"
-"checksum libc 0.2.17 (git+https://github.com/redox-os/liblibc.git?branch=new_kernel)" = "<none>"
+"checksum libc 0.2.17 (git+https://github.com/redox-os/liblibc.git?branch=redox)" = "<none>"
 "checksum libc 0.2.17 (registry+https://github.com/rust-lang/crates.io-index)" = "044d1360593a78f5c8e5e710beccdc24ab71d1f01bc19a29bcacdba22e8475d8"
 "checksum rand 0.3.14 (git+https://github.com/redox-os/rand.git)" = "<none>"
 "checksum redox_syscall 0.1.0 (git+https://github.com/redox-os/syscall.git)" = "<none>"

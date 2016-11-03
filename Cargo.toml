@@ -36,5 +36,5 @@ git = "https://github.com/redox-os/argon2rs.git"
 default-features = false
 
 [replace]
-"libc:0.2.17" = { git = "https://github.com/redox-os/liblibc.git", branch = "new_kernel" }
+"libc:0.2.17" = { git = "https://github.com/redox-os/liblibc.git", branch = "redox" }
 "rustc-serialize:0.3.19" = { git = "https://github.com/redox-os/rustc-serialize.git" }
