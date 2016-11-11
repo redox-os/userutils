@@ -1,8 +1,7 @@
 extern crate syscall;
 
-use std::io::Write;
 use std::process::Command;
-use std::{env, io, str, thread};
+use std::{env, str};
 
 pub fn main() {
     let mut args = env::args().skip(1);
@@ -29,12 +28,10 @@ pub fn main() {
         }
     }
 
-    thread::spawn(move || {
-        let stdout = io::stdout();
-        let mut stdout = stdout.lock();
+    if unsafe { syscall::clone(0).unwrap() } == 0 {
         loop {
-            stdout.write(b"\x1Bc").unwrap();
-            let _ = stdout.flush();
+            syscall::write(1, b"\x1Bc").unwrap();
+            syscall::fsync(1).unwrap();
             match Command::new("login").spawn() {
                 Ok(mut child) => match child.wait() {
                     Ok(_status) => (), //println!("getty: waited for login: {:?}", status.code()),
@@ -43,5 +40,5 @@ pub fn main() {
                 Err(err) => panic!("getty: failed to execute login: {}", err)
             }
         }
-    });
+    }
 }
