@@ -41,10 +41,10 @@ pub fn main() {
             }
 
             if passwd_option.is_none() {
-                stdout.write_all(b"\x1B[1mpassword:\x1B[0m ").unwrap();
+                stdout.write_all(b"\x1B[1mpassword:\x1B[0m \x1B[?82h").unwrap();
                 let _ = stdout.flush();
 
-                if let Some(password) = stdin.read_passwd(&mut stdout).unwrap() {
+                if let Some(password) = stdin.read_line().unwrap() {
                     stdout.write(b"\n").unwrap();
                     let _ = stdout.flush();
 
@@ -57,6 +57,8 @@ pub fn main() {
                         }
                     }
                 }
+                stdout.write(b"\x1B[?82l").unwrap();
+                let _ = stdout.flush();
             }
 
             if let Some(passwd) = passwd_option  {
