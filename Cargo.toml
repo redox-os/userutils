@@ -27,7 +27,7 @@ name = "sudo"
 path = "src/bin/sudo.rs"
 
 [dependencies]
-rand = { git = "https://github.com/rust-lang-nursery/rand.git" }
+rand = "0.3"
 redox_syscall = { git = "https://github.com/redox-os/syscall.git" }
 termion = "1.1"
 
