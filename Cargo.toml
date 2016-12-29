@@ -32,5 +32,5 @@ redox_syscall = { git = "https://github.com/redox-os/syscall.git" }
 termion = "1.1"
 
 [dependencies.argon2rs]
-git = "https://github.com/redox-os/argon2rs.git"
+git = "https://github.com/bryant/argon2rs.git"
 default-features = false
