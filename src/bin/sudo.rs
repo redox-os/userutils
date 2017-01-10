@@ -57,6 +57,8 @@ pub fn main() {
     command.uid(0);
     command.gid(0);
     command.env("USER", "root");
+    command.env("UID", "0");
+    command.env("GROUPS", "0");
 
     match command.spawn() {
         Ok(mut child) => match child.wait() {
