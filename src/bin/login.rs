@@ -75,7 +75,10 @@ pub fn main() {
                 command.current_dir(passwd.home);
 
                 command.env("USER", &user);
+                command.uid("UID", passwd.uid);
+                command.uid("GROUPS", passwd.gid);
                 command.env("HOME", passwd.home);
+                command.env("SHELL", passwd.shell);
 
                 match command.spawn() {
                     Ok(mut child) => match child.wait() {
