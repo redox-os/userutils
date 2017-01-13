@@ -1,3 +1,6 @@
+#![deny(warnings)]
+
+extern crate liner;
 extern crate termion;
 extern crate userutils;
 
@@ -11,10 +14,7 @@ use termion::input::TermRead;
 use userutils::Passwd;
 
 pub fn main() {
-    let stdin = io::stdin();
-    let mut stdin = stdin.lock();
-    let stdout = io::stdout();
-    let mut stdout = stdout.lock();
+    let mut stdout = io::stdout();
 
     if let Ok(mut issue) = File::open("/etc/issue") {
         io::copy(&mut issue, &mut stdout).unwrap();
@@ -22,11 +22,11 @@ pub fn main() {
     }
 
     loop {
-        stdout.write_all(b"\x1B[1mredox login:\x1B[0m ").unwrap();
-        let _ = stdout.flush();
-
-        let user = (&mut stdin as &mut Read).read_line().unwrap().unwrap_or(String::new());
+        let user = liner::Context::new().read_line("\x1B[1mredox login:\x1B[0m ", &mut |_| {}).unwrap();
         if ! user.is_empty() {
+            let stdin = io::stdin();
+            let mut stdin = stdin.lock();
+
             let mut passwd_string = String::new();
             File::open("/etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
 

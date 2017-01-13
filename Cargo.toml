@@ -27,6 +27,7 @@ name = "sudo"
 path = "src/bin/sudo.rs"
 
 [dependencies]
+liner = "0.1"
 rand = "0.3"
 redox_syscall = { git = "https://github.com/redox-os/syscall.git" }
 termion = "1.1"
