@@ -10,3 +10,4 @@ This repository contains utilities for user and group management for Redox. Addi
 - `id`
 - `login`
 - `sudo`
+- `whoami`

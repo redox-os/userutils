@@ -26,6 +26,10 @@ path = "src/bin/su.rs"
 name = "sudo"
 path = "src/bin/sudo.rs"
 
+[[bin]]
+name = "whoami"
+path = "src/bin/whoami.rs"
+
 [dependencies]
 argon2rs = { version = "0.2", default-features = false }
 liner = "0.1"
