@@ -22,7 +22,7 @@ fn set_tty(tty: &str) -> syscall::Result<()> {
     Ok(())
 }
 
-fn daemon() {
+fn daemon(clear: bool) {
     loop {
         if clear {
             syscall::write(1, b"\x1Bc").unwrap();
@@ -74,7 +74,7 @@ pub fn main() {
         }
 
         if unsafe { syscall::clone(0).unwrap() } == 0 {
-            daemon();
+            daemon(clear);
         }
     } else {
         panic!("getty: no tty provided");
