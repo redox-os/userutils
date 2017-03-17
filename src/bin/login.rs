@@ -16,7 +16,7 @@ use userutils::Passwd;
 pub fn main() {
     let mut stdout = io::stdout();
 
-    if let Ok(mut issue) = File::open("/etc/issue") {
+    if let Ok(mut issue) = File::open(userutils::FILE_ISSUE) {
         io::copy(&mut issue, &mut stdout).unwrap();
         let _ = stdout.flush();
     }
@@ -28,7 +28,7 @@ pub fn main() {
             let mut stdin = stdin.lock();
 
             let mut passwd_string = String::new();
-            File::open("/etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
+            File::open(userutils::FILE_PASSWD).unwrap().read_to_string(&mut passwd_string).unwrap();
 
             let mut passwd_option = None;
             for line in passwd_string.lines() {
@@ -62,7 +62,7 @@ pub fn main() {
             }
 
             if let Some(passwd) = passwd_option  {
-                if let Ok(mut motd) = File::open("/etc/motd") {
+                if let Ok(mut motd) = File::open(userutils::FILE_MOTD) {
                     io::copy(&mut motd, &mut stdout).unwrap();
                     let _ = stdout.flush();
                 }

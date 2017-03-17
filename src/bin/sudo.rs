@@ -21,7 +21,7 @@ pub fn main() {
 
             if uid != 0 {
                 let mut passwd_string = String::new();
-                if let Ok(mut file) = File::open("/etc/passwd") {
+                if let Ok(mut file) = File::open(userutils::FILE_PASSWD) {
                     let _ = file.read_to_string(&mut passwd_string);
                 }
 
@@ -42,7 +42,7 @@ pub fn main() {
                     },
                     Some(passwd) => {
                         let mut group_string = String::new();
-                        if let Ok(mut file) = File::open("/etc/group") {
+                        if let Ok(mut file) = File::open(userutils::FILE_GROUP) {
                             let _ = file.read_to_string(&mut group_string);
                         }
 

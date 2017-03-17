@@ -26,7 +26,7 @@ pub fn main() {
     let uid = syscall::getuid().unwrap();
 
     let mut passwd_string = String::new();
-    File::open("/etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
+    File::open(userutils::FILE_PASSWD).unwrap().read_to_string(&mut passwd_string).unwrap();
 
     let mut passwd_option = None;
     for line in passwd_string.lines() {

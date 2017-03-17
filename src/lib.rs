@@ -3,6 +3,11 @@ extern crate argon2rs;
 use argon2rs::verifier::Encoded;
 use argon2rs::{Argon2, Variant};
 
+pub static FILE_ISSUE:   &'static str = "/etc/issue";
+pub static FILE_PASSWD:  &'static str = "/etc/passwd";
+pub static FILE_GROUP:   &'static str = "/etc/group";
+pub static FILE_MOTD:    &'static str = "/etc/motd";
+
 pub struct Passwd<'a> {
     pub user: &'a str,
     pub hash: &'a str,
