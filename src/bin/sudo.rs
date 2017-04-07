@@ -1,19 +1,28 @@
 extern crate syscall;
+extern crate termion;
 extern crate userutils;
 
 use std::env;
 use std::fs::File;
-use std::io::{stderr, Read, Write};
+use std::io::{self, Read, Write};
 use std::os::unix::process::CommandExt;
 use std::process::{self, Command};
 
+use termion::input::TermRead;
 use userutils::{Passwd, Group};
 
 pub fn main() {
+    let stdin = io::stdin();
+    let mut stdin = stdin.lock();
+    let stdout = io::stdout();
+    let mut stdout = stdout.lock();
+    let stderr = io::stderr();
+    let mut stderr = stderr.lock();
+
     let mut args = env::args().skip(1);
     match args.next() {
         None => {
-            writeln!(stderr(), "sudo: no command provided").unwrap();
+            writeln!(stderr, "sudo: no command provided").unwrap();
             process::exit(1);
         },
         Some(cmd) => {
@@ -37,7 +46,7 @@ pub fn main() {
 
                 match passwd_option {
                     None => {
-                        writeln!(stderr(), "sudo: user not found in passwd").unwrap();
+                        writeln!(stderr, "sudo: user not found in passwd").unwrap();
                         process::exit(1);
                     },
                     Some(passwd) => {
@@ -57,8 +66,38 @@ pub fn main() {
                         }
 
                         if group_option.is_none() {
-                            writeln!(stderr(), "sudo: '{}' not in sudo group", passwd.user).unwrap();
+                            writeln!(stderr, "sudo: '{}' not in sudo group", passwd.user).unwrap();
                             process::exit(1);
+                        }
+
+                        if ! passwd.hash.is_empty() {
+                            let max_attempts = 3;
+                            let mut attempts = 0;
+                            loop {
+                                write!(stdout, "[sudo] password for {}: \x1B[?82h", passwd.user).unwrap();
+                                let _ = stdout.flush();
+
+                                match stdin.read_passwd(&mut stdout).unwrap() {
+                                    Some(password) => {
+                                        write!(stdout, "\n").unwrap();
+                                        let _ = stdout.flush();
+
+                                        if passwd.verify(&password) {
+                                            break;
+                                        } else {
+                                            attempts += 1;
+                                            writeln!(stderr, "sudo: incorrect password ({}/{})", attempts, max_attempts).unwrap();
+                                            if attempts >= max_attempts {
+                                                process::exit(1);
+                                            }
+                                        }
+                                    },
+                                    None => {
+                                        write!(stdout, "\n").unwrap();
+                                        process::exit(1);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -79,12 +118,12 @@ pub fn main() {
                 Ok(mut child) => match child.wait() {
                     Ok(status) => process::exit(status.code().unwrap_or(0)),
                     Err(err) => {
-                        writeln!(stderr(), "sudo: failed to wait for {}: {}", cmd, err).unwrap();
+                        writeln!(stderr, "sudo: failed to wait for {}: {}", cmd, err).unwrap();
                         process::exit(1);
                     }
                 },
                 Err(err) => {
-                    writeln!(stderr(), "sudo: failed to execute {}: {}", cmd, err).unwrap();
+                    writeln!(stderr, "sudo: failed to execute {}: {}", cmd, err).unwrap();
                     process::exit(1);
                 }
             }
