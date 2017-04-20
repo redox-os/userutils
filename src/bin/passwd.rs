@@ -65,7 +65,7 @@ fn main() {
             let _ = stdout.flush();
 
             if let Some(password) = stdin.read_passwd(&mut stdout).unwrap() {
-                stdout.write(b"\n").unwrap();
+                stdout.write_all(b"\n").unwrap();
                 let _ = stdout.flush();
 
                 if passwd.verify(&password) {
@@ -81,13 +81,13 @@ fn main() {
             let _ = stdout.flush();
 
             if let Some(new_password) = stdin.read_passwd(&mut stdout).unwrap() {
-                stdout.write(b"\nconfirm password: ").unwrap();
+                stdout.write_all(b"\nconfirm password: ").unwrap();
                 let _ = stdout.flush();
 
                 if let Some(confirm_password) = stdin.read_passwd(&mut stdout).unwrap() {
-                    stdout.write(b"\n").unwrap();
+                    stdout.write_all(b"\n").unwrap();
                     let _ = stdout.flush();
-                    
+
                     if new_password == confirm_password {
                         let salt = format!("{:X}", OsRng::new().unwrap().next_u64());
                         writeln!(stdout, "{}", userutils::Passwd::encode(&new_password, &salt)).unwrap();

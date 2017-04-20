@@ -18,7 +18,7 @@ pub fn main() {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
 
-    let mut user = env::args().nth(1).unwrap_or(String::new());
+    let mut user = env::args().nth(1).unwrap_or_default();
     if user.is_empty() {
         user = String::from("root");
     }
@@ -43,7 +43,7 @@ pub fn main() {
         let _ = stdout.flush();
 
         if let Some(password) = stdin.read_passwd(&mut stdout).unwrap() {
-            stdout.write(b"\n").unwrap();
+            stdout.write_all(b"\n").unwrap();
             let _ = stdout.flush();
 
             for line in passwd_string.lines() {
@@ -77,7 +77,7 @@ pub fn main() {
             Err(err) => panic!("su: failed to execute '{}': {}", passwd.shell, err)
         }
     } else {
-        stdout.write(b"su: authentication failed\n").unwrap();
+        stdout.write_all(b"su: authentication failed\n").unwrap();
         let _ = stdout.flush();
     }
 }

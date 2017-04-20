@@ -45,7 +45,7 @@ pub fn main() {
                 let _ = stdout.flush();
 
                 if let Some(password) = stdin.read_line().unwrap() {
-                    stdout.write(b"\n").unwrap();
+                    stdout.write_all(b"\n").unwrap();
                     let _ = stdout.flush();
 
                     for line in passwd_string.lines() {
@@ -57,7 +57,7 @@ pub fn main() {
                         }
                     }
                 }
-                stdout.write(b"\x1B[?82l").unwrap();
+                stdout.write_all(b"\x1B[?82l").unwrap();
                 let _ = stdout.flush();
             }
 
@@ -90,11 +90,11 @@ pub fn main() {
 
                 break;
             } else {
-                stdout.write(b"\nLogin failed\n").unwrap();
+                stdout.write_all(b"\nLogin failed\n").unwrap();
                 let _ = stdout.flush();
             }
         } else {
-            stdout.write(b"\n").unwrap();
+            stdout.write_all(b"\n").unwrap();
             let _ = stdout.flush();
         }
     }
