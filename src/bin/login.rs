@@ -3,18 +3,52 @@
 extern crate liner;
 extern crate termion;
 extern crate userutils;
+extern crate arg_parser;
 
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::unix::process::CommandExt;
-use std::process::Command;
+use std::process::{self, Command};
+use std::env;
 use std::str;
 
+use arg_parser::ArgParser;
 use termion::input::TermRead;
 use userutils::Passwd;
 
+const MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
+NAME
+    login - log into the computer
+
+SYNOPSIS
+    login
+
+DESCRIPTION
+    The login utility logs users (and pseudo-users) into the computer system.
+
+OPTIONS
+
+    -h
+    --help
+        Display this help and exit.
+
+AUTHOR
+    Written by Jeremy Soller.
+"#;
+
 pub fn main() {
     let mut stdout = io::stdout();
+
+    let mut parser = ArgParser::new(1)
+        .add_flag(&["h", "help"]);
+    parser.parse(env::args());
+
+    // Shows the help
+    if parser.found("help") {
+        let _ = stdout.write_all(MAN_PAGE.as_bytes());
+        let _ = stdout.flush();
+        process::exit(0);
+    }
 
     if let Ok(mut issue) = File::open("/etc/issue") {
         io::copy(&mut issue, &mut stdout).unwrap();

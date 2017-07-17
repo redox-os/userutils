@@ -1,10 +1,34 @@
 #![deny(warnings)]
 
 extern crate syscall;
+extern crate arg_parser;
 
 use std::process::Command;
 use std::{env, process, str};
 use std::io::{self, Write};
+
+use arg_parser::ArgParser;
+
+const MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
+NAME
+    getty - set terminal mode
+
+SYNOPSIS
+    getty
+
+DESCRIPTION
+    The getty utility is called by init(8) to open and initialize the tty line,
+    read a login name, and invoke login(1).
+
+OPTIONS
+
+    -h
+    --help
+        Display this help and exit.
+
+AUTHOR
+    Written by Jeremy Soller.
+"#;
 
 fn set_tty(tty: &str) -> syscall::Result<()> {
     let stdin = syscall::open(tty, syscall::flag::O_RDONLY)?;
@@ -39,6 +63,19 @@ fn daemon(clear: bool) {
 }
 
 pub fn main() {
+    let mut stdout = io::stdout();
+
+    let mut parser = ArgParser::new(1)
+        .add_flag(&["h", "help"]);
+    parser.parse(env::args());
+
+    // Shows the help
+    if parser.found("help") {
+        let _ = stdout.write_all(MAN_PAGE.as_bytes());
+        let _ = stdout.flush();
+        process::exit(0);
+    }
+
     let mut tty_option = None;
     let mut clear = true;
     for arg in env::args().skip(1) {
