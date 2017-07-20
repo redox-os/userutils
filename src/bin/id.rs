@@ -26,25 +26,28 @@ SYNOPSIS
     id [ -h | --help ]
 
 DESCRIPTION
-    The id utility displays the user and group names and numeric IDs,
-    of the calling process, to the standard output.
+    The id utility displays the user and group names and numeric IDs, of
+    the calling process, to the standard output.
 
 OPTIONS
     -G
-        Display the different group IDs (effective and real)
-        as white-space separated numbers, in no particular order.
+        Display the different group IDs (effective and real) as white-space
+        separated numbers, in no particular order.
 
     -g
         Display the effective group ID as a number.
 
-    -n  Display the name of the user or group ID for the -g and -u
-        options instead of the number.
+    -n  Display the name of the user or group ID for the -g and -u options
+        instead of the number.
 
     -u
         Display the effective user ID as a number.
 
     -a
         Ignored for compatibility with other id implementations.
+
+    -r
+        Display the real ID for the -g and -u options instead of the effective ID.
 
     -h
     --help

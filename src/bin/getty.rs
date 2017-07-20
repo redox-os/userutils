@@ -9,7 +9,7 @@ use std::io::{self, Write};
 
 use arg_parser::ArgParser;
 
-const MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
+const MAN_PAGE: &'static str = /* @MANSTART{getty} */ r#"
 NAME
     getty - set terminal mode
 
