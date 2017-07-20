@@ -2,19 +2,23 @@
 
 extern crate syscall;
 extern crate arg_parser;
+extern crate extra;
 
-use std::process::Command;
 use std::{env, process, str};
-use std::io::{self, Write};
+use std::io::{self, Write, Stderr};
+use std::process::{exit, Command};
 
 use arg_parser::ArgParser;
+use extra::io::fail;
+use extra::option::OptionalExt;
 
 const MAN_PAGE: &'static str = /* @MANSTART{getty} */ r#"
 NAME
     getty - set terminal mode
 
 SYNOPSIS
-    getty
+    getty [-J | --noclear] tty
+    getty [ -h | --help ]
 
 DESCRIPTION
     The getty utility is called by init(8) to open and initialize the tty line,
@@ -26,9 +30,17 @@ OPTIONS
     --help
         Display this help and exit.
 
+    -J
+    --noclear
+        Do not clear the screen before forking login(1).
+
 AUTHOR
     Written by Jeremy Soller.
 "#;
+
+const HELP_INFO: &'static str = "Try ‘getty --help’ for more information.\n";
+const DEFAULT_COLS: &'static str = "80";
+const DEFAULT_LINES: &'static str = "30";
 
 fn set_tty(tty: &str) -> syscall::Result<()> {
     let stdin = syscall::open(tty, syscall::flag::O_RDONLY)?;
@@ -46,74 +58,77 @@ fn set_tty(tty: &str) -> syscall::Result<()> {
     Ok(())
 }
 
-fn daemon(clear: bool) {
+fn daemon(clear: bool, stderr: &mut Stderr) {
     loop {
         if clear {
-            syscall::write(1, b"\x1Bc").unwrap();
+            let _ = syscall::write(1, b"\x1Bc");
         }
-        syscall::fsync(1).unwrap();
+
+        let _ = syscall::fsync(1);
         match Command::new("login").spawn() {
             Ok(mut child) => match child.wait() {
-                Ok(_status) => (), //println!("getty: waited for login: {:?}", status.code()),
-                Err(err) => panic!("getty: failed to wait for login: {}", err)
+                Ok(_status) => (),
+                Err(err) => fail(&format!("getty: failed to wait for login: {}", err), stderr)
             },
-            Err(err) => panic!("getty: failed to execute login: {}", err)
+            Err(err) => fail(&format!("getty: failed to execute login: {}", err), stderr)
         }
     }
 }
 
 pub fn main() {
     let mut stdout = io::stdout();
+    let mut stderr = io::stderr();
 
     let mut parser = ArgParser::new(1)
-        .add_flag(&["h", "help"]);
+        .add_flag(&["h", "help"])
+        .add_flag(&["J", "noclear"]);
     parser.parse(env::args());
 
-    // Shows the help
     if parser.found("help") {
-        let _ = stdout.write_all(MAN_PAGE.as_bytes());
-        let _ = stdout.flush();
-        process::exit(0);
+        stdout.write_all(MAN_PAGE.as_bytes()).try(&mut stderr);
+        stdout.flush().try(&mut stderr);;
+        exit(0);
     }
 
-    let mut tty_option = None;
+    if let Err(err) = parser.found_invalid() {
+        stderr.write_all(err.as_bytes()).try(&mut stderr);
+        stdout.write_all(HELP_INFO.as_bytes()).try(&mut stderr);
+        stderr.flush().try(&mut stderr);
+        process::exit(1);
+    }
+
     let mut clear = true;
-    for arg in env::args().skip(1) {
-        match arg.as_str() {
-            "-J" | "--noclear" => {
-                clear = false;
-            },
-            _ => {
-                tty_option = Some(arg);
-            }
+    if parser.found("noclear") {
+        clear = false
+    }
+
+    if parser.args.len() < 1 {
+        fail("getty: no TTY provided", &mut stderr);
+    }
+    
+    let tty = &parser.args[0];
+    if let Err(err) = set_tty(&tty) {
+        fail(&format!("getty: failed to open TTY {}: {}", tty, err), &mut stderr);
+    }
+
+    env::set_var("TTY", &tty);
+    {
+        let mut path = [0; 4096];
+        if let Ok(count) = syscall::fpath(0, &mut path) {
+            let path_str = str::from_utf8(&path[..count]).unwrap_or("");
+            let reference = path_str.split(':').nth(1).unwrap_or("");
+            let mut parts = reference.split('/').skip(1);
+            env::set_var("COLUMNS", parts.next().unwrap_or(DEFAULT_COLS));
+            env::set_var("LINES", parts.next().unwrap_or(DEFAULT_LINES));
+        } else {
+            env::set_var("COLUMNS", DEFAULT_COLS);
+            env::set_var("LINES", DEFAULT_LINES);
         }
     }
 
-    if let Some(tty) = tty_option {
-        if let Err(err) = set_tty(&tty) {
-            writeln!(io::stderr(), "getty: failed to open TTY {}: {}", tty, err).unwrap();
-            process::exit(1);
-        }
-
-        env::set_var("TTY", &tty);
-        {
-            let mut path = [0; 4096];
-            if let Ok(count) = syscall::fpath(0, &mut path) {
-                let path_str = str::from_utf8(&path[..count]).unwrap_or("");
-                let reference = path_str.split(':').nth(1).unwrap_or("");
-                let mut parts = reference.split('/').skip(1);
-                env::set_var("COLUMNS", parts.next().unwrap_or("80"));
-                env::set_var("LINES", parts.next().unwrap_or("30"));
-            } else {
-                env::set_var("COLUMNS", "80");
-                env::set_var("LINES", "30");
-            }
-        }
-
-        if unsafe { syscall::clone(0).unwrap() } == 0 {
-            daemon(clear);
-        }
-    } else {
-        panic!("getty: no tty provided");
+    match unsafe { syscall::clone(0) } {
+        Ok(0) => daemon(clear, &mut stderr),
+        Ok(_) => fail("getty: failed to fork login", &mut stderr),
+        Err(err) => fail(&format!("getty: failed to fork login: {}", err), &mut stderr)
     }
 }
