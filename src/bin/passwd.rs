@@ -1,3 +1,4 @@
+extern crate arg_parser;
 extern crate rand;
 extern crate syscall;
 extern crate termion;
@@ -7,14 +8,51 @@ use rand::{Rng, OsRng};
 use std::{env, io};
 use std::fs::File;
 use std::io::{Read, Write};
+use std::process;
+
+use arg_parser::ArgParser;
 use termion::input::TermRead;
 use userutils::Passwd;
+
+const MAN_PAGE: &'static str = /* @MANSTART{passwd} */ r#"
+NAME
+    passwd - modify a user's password
+
+SYNOPSIS
+    passwd
+    passwd [ -h | --help ]
+
+DESCRIPTION
+    The passwd utility changes the user's local password. If the user is not
+    the super-user, passwd first prompts for the current password and will
+    not continue unless the correct password is entered.
+
+OPTIONS
+
+    -h
+    --help
+        Display this help and exit.
+
+AUTHOR
+    Written by Jeremy Soller.
+"#;
 
 fn main() {
     let stdin = io::stdin();
     let mut stdin = stdin.lock();
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+
+    let mut parser = ArgParser::new(1)
+        .add_flag(&["h", "help"]);
+    parser.parse(env::args());
+
+    // Shows the help
+    if parser.found("help") {
+        let _ = stdout.write_all(MAN_PAGE.as_bytes());
+        let _ = stdout.flush();
+        process::exit(0);
+    }
 
     let uid = syscall::getuid().unwrap() as u32;
 
@@ -87,7 +125,7 @@ fn main() {
                 if let Some(confirm_password) = stdin.read_passwd(&mut stdout).unwrap() {
                     stdout.write(b"\n").unwrap();
                     let _ = stdout.flush();
-                    
+
                     if new_password == confirm_password {
                         let salt = format!("{:X}", OsRng::new().unwrap().next_u64());
                         writeln!(stdout, "{}", userutils::Passwd::encode(&new_password, &salt)).unwrap();

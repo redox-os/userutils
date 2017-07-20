@@ -1,22 +1,58 @@
 extern crate syscall;
 extern crate termion;
 extern crate userutils;
+extern crate arg_parser;
 
 use std::env;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::unix::process::CommandExt;
-use std::process::Command;
+use std::process::{self, Command};
 use std::str;
 
+use arg_parser::ArgParser;
 use termion::input::TermRead;
 use userutils::Passwd;
+
+const MAN_PAGE: &'static str = /* @MANSTART{su} */ r#"
+NAME
+    su - substitute user identity
+
+SYNOPSIS
+    su
+    su command
+    su [ -h | --help ]
+
+DESCRIPTION
+    The su utility requests appropriate user credentials via PAM and switches to
+    that user ID (the default user is the superuser).  A shell is then executed.
+
+OPTIONS
+
+    -h
+    --help
+        Display this help and exit.
+
+AUTHOR
+    Written by Jeremy Soller.
+"#;
 
 pub fn main() {
     let stdin = io::stdin();
     let mut stdin = stdin.lock();
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+
+    let mut parser = ArgParser::new(1)
+        .add_flag(&["h", "help"]);
+    parser.parse(env::args());
+
+    // Shows the help
+    if parser.found("help") {
+        let _ = stdout.write_all(MAN_PAGE.as_bytes());
+        let _ = stdout.flush();
+        process::exit(0);
+    }
 
     let mut user = env::args().nth(1).unwrap_or(String::new());
     if user.is_empty() {

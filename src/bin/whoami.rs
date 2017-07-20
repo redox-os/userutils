@@ -5,13 +5,12 @@ extern crate extra;
 extern crate syscall;
 extern crate userutils;
 
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::process::exit;
-use std::fs::File;
 use std::env;
 use arg_parser::ArgParser;
 use extra::option::OptionalExt;
-use userutils::Passwd;
+use userutils::{get_euid, get_user};
 
 const MAN_PAGE: &'static str = /* @MANSTART{whoami} */ r#"
 NAME
@@ -35,8 +34,6 @@ AUTHOR
     Written by Jose Narvaez.
 "#; /* @MANEND */
 
-const PASSWD_FILE: &'static str = "/etc/passwd";
-
 fn main() {
    let stdout = io::stdout();
    let mut stdout = stdout.lock();
@@ -52,23 +49,18 @@ fn main() {
         exit(0);
     }
 
-    match syscall::geteuid() {
-        Ok(euid) => {
-            let mut passwd_string = String::new();
-            if let Ok(mut file) = File::open(PASSWD_FILE) {
-                let _ = file.read_to_string(&mut passwd_string);
-            }
-
-            for line in passwd_string.lines() {
-                if let Ok(passwd) = Passwd::parse(line) {
-                    if euid == passwd.uid as usize {
-                        stdout.write_all(format!("{}\n", passwd.name).as_bytes()).try(&mut stderr);
-                        stdout.flush().try(&mut stderr);
-                        exit(0);
-                    }
-                }
-            }
-        },
-        Err(_) => exit(1)
+    let euid = get_euid(&mut stderr);
+    let user = match get_user(euid, &mut stderr) {
+        Some(user) => user,
+        None => {
+            let msg = format!("whoami: no user found for uid: {}", euid);
+            stdout.write_all(msg.as_bytes()).try(&mut stderr);
+            stdout.flush().try(&mut stderr);
+            exit(1);
+        }
     };
+
+    stdout.write_all(format!("{}\n", user).as_bytes()).try(&mut stderr);
+    stdout.flush().try(&mut stderr);
+    exit(0);
 }
