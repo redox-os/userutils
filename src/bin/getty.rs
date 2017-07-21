@@ -105,7 +105,7 @@ pub fn main() {
     if parser.args.len() < 1 {
         fail("getty: no TTY provided", &mut stderr);
     }
-    
+
     let tty = &parser.args[0];
     if let Err(err) = set_tty(&tty) {
         fail(&format!("getty: failed to open TTY {}: {}", tty, err), &mut stderr);
@@ -128,7 +128,7 @@ pub fn main() {
 
     match unsafe { syscall::clone(0) } {
         Ok(0) => daemon(clear, &mut stderr),
-        Ok(_) => fail("getty: failed to fork login", &mut stderr),
+        Ok(_) => (),
         Err(err) => fail(&format!("getty: failed to fork login: {}", err), &mut stderr)
     }
 }
