@@ -1,12 +1,15 @@
 #![deny(warnings)]
 
+extern crate redox_termios;
 extern crate syscall;
 extern crate arg_parser;
 extern crate extra;
 
 use std::{env, process, str};
-use std::io::{self, Write, Stderr};
-use std::process::{exit, Command};
+use std::fs::File;
+use std::io::{self, ErrorKind, Read, Write, Stderr};
+use std::os::unix::io::{FromRawFd, RawFd};
+use std::process::{exit, Child, Command, Stdio};
 
 use arg_parser::ArgParser;
 use extra::io::fail;
@@ -39,38 +42,141 @@ AUTHOR
 "#;
 
 const HELP_INFO: &'static str = "Try ‘getty --help’ for more information.\n";
-const DEFAULT_COLS: &'static str = "80";
-const DEFAULT_LINES: &'static str = "30";
+const DEFAULT_COLS: u32 = 80;
+const DEFAULT_LINES: u32 = 30;
 
-fn set_tty(tty: &str) -> syscall::Result<()> {
-    let stdin = syscall::open(tty, syscall::flag::O_RDONLY)?;
-    let stdout = syscall::open(tty, syscall::flag::O_WRONLY)?;
-    let stderr = syscall::open(tty, syscall::flag::O_WRONLY)?;
-
-    syscall::dup2(stdin, 0, &[])?;
-    syscall::dup2(stdout, 1, &[])?;
-    syscall::dup2(stderr, 2, &[])?;
-
-    let _ = syscall::close(stdin);
-    let _ = syscall::close(stdout);
-    let _ = syscall::close(stderr);
-
-    Ok(())
-}
-
-fn daemon(clear: bool, stderr: &mut Stderr) {
-    loop {
-        if clear {
-            let _ = syscall::write(1, b"\x1Bc");
+pub fn handle(event_file: &mut File, tty_fd: RawFd, master_fd: RawFd, process: &mut Child) {
+    let handle_event = |event_id: usize, event_count: usize| -> bool {
+        if event_id == tty_fd {
+            let mut packet = [0; 4096];
+            let count = syscall::read(tty_fd, &mut packet).expect("getty: failed to read from TTY");
+            if count == 0 {
+                if event_count == 0 {
+                    return false;
+                }
+            } else {
+                syscall::write(master_fd, &packet[..count]).expect("getty: failed to write master PTY");
+            }
+        } else if event_id == master_fd {
+            let mut packet = [0; 4096];
+            let count = syscall::read(master_fd, &mut packet).expect("getty: failed to read master PTY");
+            if count == 0 {
+                if event_count == 0 {
+                    return false;
+                }
+            } else {
+                syscall::write(tty_fd, &packet[1..count]).expect("getty: failed to write to TTY");
+                if packet[0] & 1 == 1 {
+                    let _ = syscall::fsync(tty_fd);
+                }
+            }
+        } else {
+            println!("Unknown event {}", event_id);
         }
 
-        let _ = syscall::fsync(1);
-        match Command::new("login").spawn() {
-            Ok(mut child) => match child.wait() {
-                Ok(_status) => (),
-                Err(err) => fail(&format!("getty: failed to wait for login: {}", err), stderr)
+        true
+    };
+
+    handle_event(tty_fd, 0);
+    handle_event(master_fd, 0);
+
+    'events: loop {
+        let mut sys_event = syscall::Event::default();
+        event_file.read(&mut sys_event).expect("getty: failed to read event file");
+        if ! handle_event(sys_event.id, sys_event.data) {
+            break 'events;
+        }
+
+        match process.try_wait() {
+            Ok(status) => match status {
+                Some(_code) => break 'events,
+                None => ()
             },
-            Err(err) => fail(&format!("getty: failed to execute login: {}", err), stderr)
+            Err(err) => match err.kind() {
+                ErrorKind::WouldBlock => (),
+                _ => panic!("getty: failed to wait on child: {:?}", err)
+            }
+        }
+    }
+
+    let _ = process.kill();
+    process.wait().expect("getty: failed to wait on login");
+}
+
+pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
+    use redox_termios;
+    use syscall;
+
+    let master = syscall::open("pty:", syscall::O_CLOEXEC | syscall::O_RDWR | syscall::O_CREAT | syscall::O_NONBLOCK).expect("getty: failed to create PTY");
+
+    if let Ok(winsize_fd) = syscall::dup(master, b"winsize") {
+        let _ = syscall::write(winsize_fd, &redox_termios::Winsize {
+            ws_row: lines as u16,
+            ws_col: columns as u16
+        });
+        let _ = syscall::close(winsize_fd);
+    }
+
+    let mut buf: [u8; 4096] = [0; 4096];
+    let count = syscall::fpath(master, &mut buf).unwrap();
+    (master, unsafe { String::from_utf8_unchecked(Vec::from(&buf[..count])) })
+}
+
+fn daemon(tty_fd: RawFd, clear: bool, stderr: &mut Stderr) {
+    let (columns, lines) = {
+        let mut path = [0; 4096];
+        if let Ok(count) = syscall::fpath(tty_fd, &mut path) {
+            let path_str = str::from_utf8(&path[..count]).unwrap_or("");
+            let reference = path_str.split(':').nth(1).unwrap_or("");
+            let mut parts = reference.split('/').skip(1);
+            let columns = parts.next().unwrap_or("").parse().unwrap_or(DEFAULT_COLS);
+            let lines = parts.next().unwrap_or("").parse().unwrap_or(DEFAULT_LINES);
+            (columns, lines)
+        } else {
+            (DEFAULT_COLS, DEFAULT_LINES)
+        }
+    };
+
+    let (master_fd, pty) = getpty(columns, lines);
+
+    let mut event_file = File::open("event:").expect("getty: failed to open event file");
+
+    syscall::fevent(tty_fd, syscall::flag::EVENT_READ).expect("getty: failed to fevent TTY");
+    syscall::fevent(master_fd, syscall::flag::EVENT_READ).expect("getty: failed to fevent master PTY");
+
+    loop {
+        if clear {
+            let _ = syscall::write(tty_fd, b"\x1Bc");
+        }
+        let _ = syscall::fsync(tty_fd);
+
+        let slave_stdin = syscall::open(&pty, syscall::O_CLOEXEC | syscall::O_RDONLY).expect("getty: failed to open slave stdin");
+        let slave_stdout = syscall::open(&pty, syscall::O_CLOEXEC | syscall::O_WRONLY).expect("getty: failed to open slave stdout");
+        let slave_stderr = syscall::open(&pty, syscall::O_CLOEXEC | syscall::O_WRONLY).expect("getty: failed to open slave stderr");
+
+        let mut command = Command::new("login");
+        unsafe {
+            command
+            .stdin(Stdio::from_raw_fd(slave_stdin))
+            .stdout(Stdio::from_raw_fd(slave_stdout))
+            .stderr(Stdio::from_raw_fd(slave_stderr))
+            .env("COLUMNS", format!("{}", columns))
+            .env("LINES", format!("{}", lines))
+            .env("TERM", "xterm-256color")
+            .env("TTY", &pty);
+        }
+
+        match command.spawn() {
+            Ok(mut process) => {
+                let _ = syscall::close(slave_stderr);
+                let _ = syscall::close(slave_stdout);
+                let _ = syscall::close(slave_stdin);
+
+                handle(&mut event_file, tty_fd, master_fd, &mut process);
+            },
+            Err(err) => {
+                fail(&format!("getty: failed to execute login: {}", err), stderr)
+            }
         }
     }
 }
@@ -107,27 +213,13 @@ pub fn main() {
     }
 
     let tty = &parser.args[0];
-    if let Err(err) = set_tty(&tty) {
-        fail(&format!("getty: failed to open TTY {}: {}", tty, err), &mut stderr);
-    }
-
-    env::set_var("TTY", &tty);
-    {
-        let mut path = [0; 4096];
-        if let Ok(count) = syscall::fpath(0, &mut path) {
-            let path_str = str::from_utf8(&path[..count]).unwrap_or("");
-            let reference = path_str.split(':').nth(1).unwrap_or("");
-            let mut parts = reference.split('/').skip(1);
-            env::set_var("COLUMNS", parts.next().unwrap_or(DEFAULT_COLS));
-            env::set_var("LINES", parts.next().unwrap_or(DEFAULT_LINES));
-        } else {
-            env::set_var("COLUMNS", DEFAULT_COLS);
-            env::set_var("LINES", DEFAULT_LINES);
-        }
-    }
+    let tty_fd = match syscall::open(tty, syscall::O_CLOEXEC | syscall::flag::O_RDWR | syscall::flag::O_NONBLOCK) {
+        Ok(fd) => fd,
+        Err(err) => fail(&format!("getty: failed to open TTY {}: {}", tty, err), &mut stderr),
+    };
 
     match unsafe { syscall::clone(0) } {
-        Ok(0) => daemon(clear, &mut stderr),
+        Ok(0) => daemon(tty_fd, clear, &mut stderr),
         Ok(_) => (),
         Err(err) => fail(&format!("getty: failed to fork login: {}", err), &mut stderr)
     }
