@@ -1,16 +1,21 @@
+#![deny(warnings)]
+
+extern crate arg_parser;
+extern crate extra;
 extern crate syscall;
 extern crate termion;
 extern crate userutils;
-extern crate arg_parser;
 
 use std::env;
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::unix::process::CommandExt;
-use std::process::{self, Command};
+use std::process::{exit, Command};
 use std::str;
 
 use arg_parser::ArgParser;
+use extra::io::fail;
+use extra::option::OptionalExt;
 use termion::input::TermRead;
 use userutils::Passwd;
 
@@ -19,8 +24,7 @@ NAME
     su - substitute user identity
 
 SYNOPSIS
-    su
-    su command
+    su [ user ]
     su [ -h | --help ]
 
 DESCRIPTION
@@ -36,12 +40,14 @@ OPTIONS
 AUTHOR
     Written by Jeremy Soller.
 "#;
+const PASSWD_FILE: &'static str = "/etc/passwd";
 
 pub fn main() {
     let stdin = io::stdin();
     let mut stdin = stdin.lock();
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
+    let mut stderr = io::stderr();
 
     let mut parser = ArgParser::new(1)
         .add_flag(&["h", "help"]);
@@ -49,51 +55,49 @@ pub fn main() {
 
     // Shows the help
     if parser.found("help") {
-        let _ = stdout.write_all(MAN_PAGE.as_bytes());
-        let _ = stdout.flush();
-        process::exit(0);
+        stdout.write_all(MAN_PAGE.as_bytes()).try(&mut stderr);
+        stdout.flush().try(&mut stderr);
+        exit(0);
     }
 
-    let mut user = env::args().nth(1).unwrap_or(String::new());
-    if user.is_empty() {
-        user = String::from("root");
-    }
+    let user = if parser.args.is_empty() {
+        String::from("root")
+    } else {
+        parser.args[0].to_string()
+    };
 
-    let uid = syscall::getuid().unwrap();
+    let uid = userutils::get_uid(&mut stderr);
 
     let mut passwd_string = String::new();
-    File::open("/etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
+    let mut passwd_file = match File::open(PASSWD_FILE) {
+        Ok(file) => file,
+        Err(err) => fail(&format!("su: there was an error opening the passwd file: {}", err), &mut stderr)
+    };
 
-    let mut passwd_option = None;
-    for line in passwd_string.lines() {
-        if let Ok(passwd) = Passwd::parse(line) {
-            if user == passwd.user && ("" == passwd.hash || uid == 0) {
-                passwd_option = Some(passwd);
-                break;
-            }
-        }
-    }
+    passwd_file.read_to_string(&mut passwd_string).try(&mut stderr);
+
+    let passwd_file_entries = match Passwd::parse_file(&passwd_string) {
+        Ok(entries) => entries,
+        Err(_) => fail(&format!("su: there was an error parsing the passwd file."), &mut stderr)
+    };
+
+    let mut passwd_option = passwd_file_entries.iter()
+        .find(|passwd| { user == passwd.user && ("" == passwd.hash || uid == 0) });
 
     if passwd_option.is_none() {
-        stdout.write_all(b"password: ").unwrap();
-        let _ = stdout.flush();
+        stdout.write_all(b"password: ").try(&mut stderr);
+        stdout.flush().try(&mut stderr);
 
-        if let Some(password) = stdin.read_passwd(&mut stdout).unwrap() {
-            stdout.write(b"\n").unwrap();
-            let _ = stdout.flush();
+        if let Some(password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
+            stdout.write(b"\n").try(&mut stderr);
+            stdout.flush().try(&mut stderr);
 
-            for line in passwd_string.lines() {
-                if let Ok(passwd) = Passwd::parse(line) {
-                    if user == passwd.user && passwd.verify(&password) {
-                        passwd_option = Some(passwd);
-                        break;
-                    }
-                }
-            }
+            passwd_option = passwd_file_entries.iter()
+                .find(|passwd| user == passwd.user && passwd.verify(&password));
         }
     }
 
-    if let Some(passwd) = passwd_option  {
+    if let Some(passwd) = passwd_option {
         let mut command = Command::new(passwd.shell);
 
         command.uid(passwd.uid);
@@ -107,13 +111,13 @@ pub fn main() {
 
         match command.spawn() {
             Ok(mut child) => match child.wait() {
-                Ok(_status) => (), //println!("login: waited for {}: {:?}", sh, status.code()),
-                Err(err) => panic!("su: failed to wait for '{}': {}", passwd.shell, err)
+                Ok(_status) => (),
+                Err(err) => fail(&format!("su: failed to wait for '{}': {}", passwd.shell, err), &mut stderr)
             },
-            Err(err) => panic!("su: failed to execute '{}': {}", passwd.shell, err)
+            Err(err) => fail(&format!("su: failed to execute '{}': {}", passwd.shell, err), &mut stderr)
         }
     } else {
-        stdout.write(b"su: authentication failed\n").unwrap();
-        let _ = stdout.flush();
+        stdout.write(b"su: authentication failed\n").try(&mut stderr);
+        stdout.flush().try(&mut stderr);
     }
 }
