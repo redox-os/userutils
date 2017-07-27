@@ -1,17 +1,20 @@
 #![deny(warnings)]
 
+extern crate arg_parser;
+extern crate extra;
 extern crate liner;
 extern crate termion;
 extern crate userutils;
-extern crate arg_parser;
 
 use std::fs::File;
 use std::io::{self, Read, Write};
 use std::os::unix::process::CommandExt;
-use std::process::{self, Command};
+use std::process::{exit, Command};
 use std::env;
 use std::str;
 
+use extra::io::fail;
+use extra::option::OptionalExt;
 use arg_parser::ArgParser;
 use termion::input::TermRead;
 use userutils::Passwd;
@@ -35,9 +38,13 @@ OPTIONS
 AUTHOR
     Written by Jeremy Soller.
 "#;
+const ISSUE_FILE: &'static str = "/etc/issue";
+const MOTD_FILE: &'static str = "/etc/motd";
+const PASSWD_FILE: &'static str = "/etc/passwd";
 
 pub fn main() {
     let mut stdout = io::stdout();
+    let mut stderr = io::stderr();
 
     let mut parser = ArgParser::new(1)
         .add_flag(&["h", "help"]);
@@ -45,60 +52,62 @@ pub fn main() {
 
     // Shows the help
     if parser.found("help") {
-        let _ = stdout.write_all(MAN_PAGE.as_bytes());
-        let _ = stdout.flush();
-        process::exit(0);
+        stdout.write_all(MAN_PAGE.as_bytes()).try(&mut stderr);
+        stdout.flush().try(&mut stderr);
+        exit(0);
     }
 
-    if let Ok(mut issue) = File::open("/etc/issue") {
-        io::copy(&mut issue, &mut stdout).unwrap();
-        let _ = stdout.flush();
+    if let Ok(mut issue) = File::open(ISSUE_FILE) {
+        io::copy(&mut issue, &mut stdout).try(&mut stderr);
+        stdout.flush().try(&mut stderr);
     }
 
     loop {
-        let user = liner::Context::new().read_line("\x1B[1mredox login:\x1B[0m ", &mut |_| {}).unwrap();
+        let user = liner::Context::new()
+            .read_line("\x1B[1mredox login:\x1B[0m ", &mut |_| {})
+            .try(&mut stderr);
+
         if ! user.is_empty() {
             let stdin = io::stdin();
             let mut stdin = stdin.lock();
 
             let mut passwd_string = String::new();
-            File::open("/etc/passwd").unwrap().read_to_string(&mut passwd_string).unwrap();
-
-            let mut passwd_option = None;
-            for line in passwd_string.lines() {
-                if let Ok(passwd) = Passwd::parse(line) {
-                    if user == passwd.user && "" == passwd.hash {
-                        passwd_option = Some(passwd);
-                        break;
-                    }
+            match File::open(PASSWD_FILE) {
+                Ok(mut file) => file.read_to_string(&mut passwd_string).try(&mut stderr),
+                Err(err) => {
+                    let msg = &format!("login: failed to open passwd file: {}", err);
+                    fail(msg, &mut stderr);
                 }
-            }
+            };
+
+            let passwd_file_entries = match Passwd::parse_file(&passwd_string) {
+                Ok(entries) => entries,
+                Err(_) => fail("login: error parsing passwd file", &mut stderr)
+            };
+
+            let mut passwd_option = passwd_file_entries.iter()
+                .find(|passwd| user == passwd.user && "" == passwd.hash);
 
             if passwd_option.is_none() {
-                stdout.write_all(b"\x1B[1mpassword:\x1B[0m \x1B[?82h").unwrap();
-                let _ = stdout.flush();
+                stdout.write_all(b"\x1B[1mpassword:\x1B[0m \x1B[?82h").try(&mut stderr);
+                stdout.flush().try(&mut stderr);
 
-                if let Some(password) = stdin.read_line().unwrap() {
-                    stdout.write(b"\n").unwrap();
-                    let _ = stdout.flush();
+                if let Some(password) = stdin.read_line().try(&mut stderr) {
+                    stdout.write(b"\n").try(&mut stderr);
+                    stdout.flush().try(&mut stderr);;
 
-                    for line in passwd_string.lines() {
-                        if let Ok(passwd) = Passwd::parse(line) {
-                            if user == passwd.user && passwd.verify(&password) {
-                                passwd_option = Some(passwd);
-                                break;
-                            }
-                        }
-                    }
+                    passwd_option = passwd_file_entries.iter()
+                        .find(|passwd| user == passwd.user && passwd.verify(&password));
                 }
-                stdout.write(b"\x1B[?82l").unwrap();
-                let _ = stdout.flush();
+
+                stdout.write(b"\x1B[?82l").try(&mut stderr);
+                stdout.flush().try(&mut stderr);;
             }
 
             if let Some(passwd) = passwd_option  {
-                if let Ok(mut motd) = File::open("/etc/motd") {
-                    io::copy(&mut motd, &mut stdout).unwrap();
-                    let _ = stdout.flush();
+                if let Ok(mut motd) = File::open(MOTD_FILE) {
+                    io::copy(&mut motd, &mut stdout).try(&mut stderr);
+                    stdout.flush().try(&mut stderr);
                 }
 
                 let mut command = Command::new(passwd.shell);
@@ -116,7 +125,7 @@ pub fn main() {
 
                 match command.spawn() {
                     Ok(mut child) => match child.wait() {
-                        Ok(_status) => (), //println!("login: waited for {}: {:?}", sh, status.code()),
+                        Ok(_status) => (),
                         Err(err) => panic!("login: failed to wait for '{}': {}", passwd.shell, err)
                     },
                     Err(err) => panic!("login: failed to execute '{}': {}", passwd.shell, err)
@@ -124,12 +133,12 @@ pub fn main() {
 
                 break;
             } else {
-                stdout.write(b"\nLogin failed\n").unwrap();
-                let _ = stdout.flush();
+                stdout.write(b"\nLogin failed\n").try(&mut stderr);
+                stdout.flush().try(&mut stderr);;
             }
         } else {
-            stdout.write(b"\n").unwrap();
-            let _ = stdout.flush();
+            stdout.write(b"\n").try(&mut stderr);
+            stdout.flush().try(&mut stderr);;
         }
     }
 }
