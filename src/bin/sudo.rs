@@ -115,7 +115,7 @@ pub fn main() {
                             let max_attempts = 3;
                             let mut attempts = 0;
                             loop {
-                                write!(stdout, "[sudo] password for {}: \x1B[?82h", passwd.user).unwrap();
+                                write!(stdout, "[sudo] password for {}: ", passwd.user).unwrap();
                                 let _ = stdout.flush();
 
                                 match stdin.read_passwd(&mut stdout).unwrap() {

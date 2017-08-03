@@ -89,19 +89,16 @@ pub fn main() {
                 .find(|passwd| user == passwd.user && "" == passwd.hash);
 
             if passwd_option.is_none() {
-                stdout.write_all(b"\x1B[1mpassword:\x1B[0m \x1B[?82h").try(&mut stderr);
+                stdout.write_all(b"\x1B[1mpassword:\x1B[0m ").try(&mut stderr);
                 stdout.flush().try(&mut stderr);
 
-                if let Some(password) = stdin.read_line().try(&mut stderr) {
+                if let Some(password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
                     stdout.write(b"\n").try(&mut stderr);
                     stdout.flush().try(&mut stderr);;
 
                     passwd_option = passwd_file_entries.iter()
                         .find(|passwd| user == passwd.user && passwd.verify(&password));
                 }
-
-                stdout.write(b"\x1B[?82l").try(&mut stderr);
-                stdout.flush().try(&mut stderr);;
             }
 
             if let Some(passwd) = passwd_option  {
