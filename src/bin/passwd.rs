@@ -3,7 +3,6 @@
 extern crate arg_parser;
 extern crate extra;
 extern crate rand;
-extern crate syscall;
 extern crate termion;
 extern crate userutils;
 
