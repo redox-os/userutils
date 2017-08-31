@@ -2,7 +2,6 @@
 
 extern crate arg_parser;
 extern crate extra;
-extern crate syscall;
 extern crate userutils;
 
 use std::io::{self, Write};
