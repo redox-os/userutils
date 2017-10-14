@@ -38,7 +38,8 @@ OPTIONS
 
 AUTHOR
     Written by Jeremy Soller.
-"#;
+"#; /* @MANEND */
+
 const PASSWD_FILE: &'static str = "/etc/passwd";
 
 pub fn main() {

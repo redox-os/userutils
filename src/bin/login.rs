@@ -37,7 +37,8 @@ OPTIONS
 
 AUTHOR
     Written by Jeremy Soller.
-"#;
+"#; /* @MANEND */
+
 const ISSUE_FILE: &'static str = "/etc/issue";
 const MOTD_FILE: &'static str = "/etc/motd";
 const PASSWD_FILE: &'static str = "/etc/passwd";

@@ -39,7 +39,7 @@ OPTIONS
 
 AUTHOR
     Written by Jeremy Soller.
-"#;
+"#; /* @MANEND */
 
 const HELP_INFO: &'static str = "Try ‘getty --help’ for more information.\n";
 const DEFAULT_COLS: u32 = 80;

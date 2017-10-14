@@ -38,7 +38,7 @@ EXIT STATUS
 
 AUTHOR
     Written by Jeremy Soller.
-"#;
+"#; /* @MANEND */
 
 pub fn main() {
     let stdin = io::stdin();
