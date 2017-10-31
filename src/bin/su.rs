@@ -3,20 +3,19 @@
 extern crate arg_parser;
 extern crate extra;
 extern crate termion;
+extern crate redox_users;
 extern crate userutils;
 
 use std::env;
-use std::fs::File;
-use std::io::{self, Read, Write};
-use std::os::unix::process::CommandExt;
-use std::process::{exit, Command};
+use std::io::{self, Write};
+use std::process::exit;
 use std::str;
 
 use arg_parser::ArgParser;
-use extra::io::fail;
 use extra::option::OptionalExt;
 use termion::input::TermRead;
-use userutils::Passwd;
+use redox_users::{get_uid, get_user_by_name};
+use userutils::spawn_shell;
 
 const MAN_PAGE: &'static str = /* @MANSTART{su} */ r#"
 NAME
@@ -37,10 +36,8 @@ OPTIONS
         Display this help and exit.
 
 AUTHOR
-    Written by Jeremy Soller.
+    Written by Jeremy Soller, Jose Narvaez.
 "#; /* @MANEND */
-
-const PASSWD_FILE: &'static str = "/etc/passwd";
 
 pub fn main() {
     let stdin = io::stdin();
@@ -60,64 +57,34 @@ pub fn main() {
         exit(0);
     }
 
-    let user = if parser.args.is_empty() {
+    let target_user = if parser.args.is_empty() {
         String::from("root")
     } else {
         parser.args[0].to_string()
     };
 
-    let uid = userutils::get_uid(&mut stderr);
+    let uid = get_uid();
+    let user = get_user_by_name(&target_user).unwrap_or_else(|| {
+        eprintln!("su: user {} not found", target_user);
+        exit(1);
+    });
 
-    let mut passwd_string = String::new();
-    let mut passwd_file = match File::open(PASSWD_FILE) {
-        Ok(file) => file,
-        Err(err) => fail(&format!("su: there was an error opening the passwd file: {}", err), &mut stderr)
-    };
-
-    passwd_file.read_to_string(&mut passwd_string).try(&mut stderr);
-
-    let passwd_file_entries = match Passwd::parse_file(&passwd_string) {
-        Ok(entries) => entries,
-        Err(_) => fail(&format!("su: there was an error parsing the passwd file."), &mut stderr)
-    };
-
-    let mut passwd_option = passwd_file_entries.iter()
-        .find(|passwd| { user == passwd.user && ("" == passwd.hash || uid == 0) });
-
-    if passwd_option.is_none() {
+    if uid > 0 || user.hash != "" {
         stdout.write_all(b"password: ").try(&mut stderr);
         stdout.flush().try(&mut stderr);
 
         if let Some(password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
-            stdout.write(b"\n").try(&mut stderr);
-            stdout.flush().try(&mut stderr);
 
-            passwd_option = passwd_file_entries.iter()
-                .find(|passwd| user == passwd.user && passwd.verify(&password));
+            if user.verify_passwd(&password) {
+                spawn_shell(user);
+                exit(0);
+            } else {
+                stdout.write(b"su: authentication failed\n").try(&mut stderr);
+                stdout.flush().try(&mut stderr);
+                exit(1);
+            }
         }
     }
 
-    if let Some(passwd) = passwd_option {
-        let mut command = Command::new(passwd.shell);
-
-        command.uid(passwd.uid);
-        command.gid(passwd.gid);
-
-        command.env("USER", &user);
-        command.env("UID", format!("{}", passwd.uid));
-        command.env("GROUPS", format!("{}", passwd.gid));
-        command.env("HOME", passwd.home);
-        command.env("SHELL", passwd.shell);
-
-        match command.spawn() {
-            Ok(mut child) => match child.wait() {
-                Ok(_status) => (),
-                Err(err) => fail(&format!("su: failed to wait for '{}': {}", passwd.shell, err), &mut stderr)
-            },
-            Err(err) => fail(&format!("su: failed to execute '{}': {}", passwd.shell, err), &mut stderr)
-        }
-    } else {
-        stdout.write(b"su: authentication failed\n").try(&mut stderr);
-        stdout.flush().try(&mut stderr);
-    }
+    spawn_shell(user);
 }
