@@ -4,20 +4,20 @@ extern crate arg_parser;
 extern crate extra;
 extern crate liner;
 extern crate termion;
+extern crate redox_users;
 extern crate userutils;
 
 use std::fs::File;
-use std::io::{self, Read, Write};
-use std::os::unix::process::CommandExt;
-use std::process::{exit, Command};
+use std::io::{self, Write};
+use std::process::exit;
 use std::env;
 use std::str;
 
-use extra::io::fail;
 use extra::option::OptionalExt;
 use arg_parser::ArgParser;
 use termion::input::TermRead;
-use userutils::Passwd;
+use redox_users::get_user_by_name;
+use userutils::spawn_shell;
 
 const MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
 NAME
@@ -36,12 +36,11 @@ OPTIONS
         Display this help and exit.
 
 AUTHOR
-    Written by Jeremy Soller.
+    Written by Jeremy Soller, Jose Narvaez.
 "#; /* @MANEND */
 
 const ISSUE_FILE: &'static str = "/etc/issue";
 const MOTD_FILE: &'static str = "/etc/motd";
-const PASSWD_FILE: &'static str = "/etc/passwd";
 
 pub fn main() {
     let mut stdout = io::stdout();
@@ -72,67 +71,42 @@ pub fn main() {
             let stdin = io::stdin();
             let mut stdin = stdin.lock();
 
-            let mut passwd_string = String::new();
-            match File::open(PASSWD_FILE) {
-                Ok(mut file) => file.read_to_string(&mut passwd_string).try(&mut stderr),
-                Err(err) => {
-                    let msg = &format!("login: failed to open passwd file: {}", err);
-                    fail(msg, &mut stderr);
-                }
-            };
-
-            let passwd_file_entries = match Passwd::parse_file(&passwd_string) {
-                Ok(entries) => entries,
-                Err(_) => fail("login: error parsing passwd file", &mut stderr)
-            };
-
-            let mut passwd_option = passwd_file_entries.iter()
-                .find(|passwd| user == passwd.user && "" == passwd.hash);
-
-            if passwd_option.is_none() {
-                stdout.write_all(b"\x1B[1mpassword:\x1B[0m ").try(&mut stderr);
-                stdout.flush().try(&mut stderr);
-
-                if let Some(password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
+            let user_option = get_user_by_name(user);
+            match user_option {
+                None => {
+                    stdout.write(b"\nLogin incorrect\n").try(&mut stderr);
                     stdout.write(b"\n").try(&mut stderr);
-                    stdout.flush().try(&mut stderr);;
-
-                    passwd_option = passwd_file_entries.iter()
-                        .find(|passwd| user == passwd.user && passwd.verify(&password));
-                }
-            }
-
-            if let Some(passwd) = passwd_option  {
-                if let Ok(mut motd) = File::open(MOTD_FILE) {
-                    io::copy(&mut motd, &mut stdout).try(&mut stderr);
                     stdout.flush().try(&mut stderr);
+                    continue;
+                },
+                Some(user) => {
+                    if user.hash == "" {
+                        if let Ok(mut motd) = File::open(MOTD_FILE) {
+                            io::copy(&mut motd, &mut stdout).try(&mut stderr);
+                            stdout.flush().try(&mut stderr);
+                        }
+
+                        spawn_shell(user);
+                        break;
+                    }
+
+                    stdout.write_all(b"\x1B[1mpassword:\x1B[0m ").try(&mut stderr);
+                    stdout.flush().try(&mut stderr);
+                    if let Some(password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
+                        stdout.write(b"\n").try(&mut stderr);
+                        stdout.flush().try(&mut stderr);
+
+                        if user.verify_passwd(&password) {
+                            if let Ok(mut motd) = File::open(MOTD_FILE) {
+                                io::copy(&mut motd, &mut stdout).try(&mut stderr);
+                                stdout.flush().try(&mut stderr);
+                            }
+
+                            spawn_shell(user);
+                            break;
+                        }
+                    }
                 }
-
-                let mut command = Command::new(passwd.shell);
-
-                command.uid(passwd.uid);
-                command.gid(passwd.gid);
-
-                command.current_dir(passwd.home);
-
-                command.env("USER", &user);
-                command.env("UID", format!("{}", passwd.uid));
-                command.env("GROUPS", format!("{}", passwd.gid));
-                command.env("HOME", passwd.home);
-                command.env("SHELL", passwd.shell);
-
-                match command.spawn() {
-                    Ok(mut child) => match child.wait() {
-                        Ok(_status) => (),
-                        Err(err) => panic!("login: failed to wait for '{}': {}", passwd.shell, err)
-                    },
-                    Err(err) => panic!("login: failed to execute '{}': {}", passwd.shell, err)
-                }
-
-                break;
-            } else {
-                stdout.write(b"\nLogin failed\n").try(&mut stderr);
-                stdout.flush().try(&mut stderr);;
             }
         } else {
             stdout.write(b"\n").try(&mut stderr);
@@ -140,3 +114,4 @@ pub fn main() {
         }
     }
 }
+
