@@ -1,4 +1,4 @@
-#![deny(warnings)]
+#![deny(dead_code)]
 
 extern crate arg_parser;
 extern crate extra;
