@@ -11,7 +11,7 @@ use std::io::Write;
 use std::process::exit;
 
 use arg_parser::ArgParser;
-use redox_users::{add_group, get_uid, get_unique_group_id};
+use redox_users::{add_group, get_unique_group_id};
 
 const MAN_PAGE: &'static str = /* @MANSTART{groupadd} */ r#"
 NAME
@@ -56,11 +56,6 @@ fn main() {
         exit(0);
     }
     
-    if get_uid() != 0 {
-        eprintln!("groupadd: privelege elevation required");
-        exit(1);
-    }
-    
     let groupname = if parser.args.is_empty() {
         eprintln!("groupadd: no group name specified");
         exit(1);
@@ -79,8 +74,9 @@ fn main() {
     match add_group(groupname, gid, &[""]) {
         Ok(_) => {},
         Err(err) => {
-            eprintln!("groupadd: {}: {}", err, groupname);
-            if parser.found("force") {
+            eprintln!("groupadd: {}: group {}", err, groupname);
+            let msg = format!("{}", err);
+            if parser.found("force") && msg == "user already exists" {
                 exit(0);
             } else {
                 exit(1);
