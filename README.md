@@ -16,4 +16,5 @@ inspiration by BSD systems. They are indeed small, by choice.
 - `passwd`: Allows users to modify their passwords.
 - `su`: Allows users to substitute identity.
 - `sudo`: Enables users to execute a command as another user.
+- `groupadd`: Add a user group
 - `whoami`: Display effective user ID.
