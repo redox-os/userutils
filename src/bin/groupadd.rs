@@ -1,4 +1,4 @@
-#[deny(dead_code)]
+#![deny(warnings)]
 
 extern crate arg_parser;
 extern crate extra;
@@ -26,7 +26,6 @@ DESCRIPTION
     passed on the command line and system defaults.
 
 OPTIONS
-    
     -f, --force
         Simply forces the exit status of the program to 0
         even if the group already exists. A message is still
@@ -73,14 +72,12 @@ fn main() {
     
     match add_group(groupname, gid, &[""]) {
         Ok(_) => {},
+        Err(ref err) if err.kind() == io::ErrorKind::AlreadyExists && parser.found("force") => {
+            exit(0);
+        },
         Err(err) => {
             eprintln!("groupadd: {}: group {}", err, groupname);
-            let msg = format!("{}", err);
-            if parser.found("force") && msg == "user already exists" {
-                exit(0);
-            } else {
-                exit(1);
-            }
+            exit(1);
         }
     }
 }

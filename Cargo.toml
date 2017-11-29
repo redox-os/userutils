@@ -31,6 +31,10 @@ name = "sudo"
 path = "src/bin/sudo.rs"
 
 [[bin]]
+name = "useradd"
+path = "src/bin/useradd.rs"
+
+[[bin]]
 name = "whoami"
 path = "src/bin/whoami.rs"
 
