@@ -104,7 +104,7 @@ dependencies = [
 [[package]]
 name = "redox_users"
 version = "0.1.0"
-source = "git+https://github.com/redox-os/users.git#50f4022e6c713a131bbbfde360cb0f369e96c672"
+source = "git+https://github.com/redox-os/users.git#83ea6d2c6d3ea1e3082e4bd8d15633d0f03d3137"
 dependencies = [
  "argon2rs 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "extra 0.1.0 (git+https://github.com/redox-os/libextra.git)",
