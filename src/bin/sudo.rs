@@ -65,15 +65,19 @@ pub fn main() {
         exit(1);
     });
 
-    let uid = get_uid();
-    let user = get_user_by_id(uid).unwrap_or_else(|| {
-        eprintln!("sudo: user not found");
+    let uid = get_uid().unwrap_or_else(|err| {
+        eprintln!("sudo: {}", err);
+        exit(1);
+    });
+
+    let user = get_user_by_id(uid).unwrap_or_else(|err| {
+        eprintln!("sudo: {}", err);
         exit(1);
     });
 
     if uid != 0 {
-        let sudo_group = get_group_by_name("sudo").unwrap_or_else(|| {
-            eprintln!("sudo: sudo group not found");
+        let sudo_group = get_group_by_name("sudo").unwrap_or_else(|err| {
+            eprintln!("sudo: {}", err);
             exit(1);
         });
 

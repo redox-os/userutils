@@ -16,7 +16,7 @@ use std::str;
 use extra::option::OptionalExt;
 use arg_parser::ArgParser;
 use termion::input::TermRead;
-use redox_users::get_user_by_name;
+use redox_users::{get_user_by_name, UsersError};
 use userutils::spawn_shell;
 
 const MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
@@ -71,7 +71,27 @@ pub fn main() {
             let stdin = io::stdin();
             let mut stdin = stdin.lock();
 
-            let user_option = get_user_by_name(user);
+            let user_option = match get_user_by_name(user) {
+                Ok(user) => Some(user),
+                Err(err) => {
+                    match err.downcast::<UsersError>() {
+                        Ok(users_error) => {
+                            match users_error {
+                                UsersError::UserNotFound { user: _ } => None,                          
+                                err => { 
+                                    println!("login: {}", err);
+                                    exit(1);
+                                }
+                            }
+                        },
+                        Err(err) => {
+                            println!("login: {}", err);
+                            exit(1);
+                        }
+                    }
+                }
+            };
+
             match user_option {
                 None => {
                     stdout.write(b"\nLogin incorrect\n").try(&mut stderr);
