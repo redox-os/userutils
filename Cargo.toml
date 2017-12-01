@@ -47,5 +47,5 @@ rand = "0.3"
 redox_syscall = "0.1"
 redox_termios = "0.1"
 #redox_users = { git = "https://github.com/redox-os/users.git" }
-redox_users = { path = "/home/goyox86/Code/os/redox/users" }
+redox_users = { path = "/Users/goyox86/Code/os/redox/users" }
 termion = "1.5.1"

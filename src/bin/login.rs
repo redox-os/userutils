@@ -73,22 +73,12 @@ pub fn main() {
 
             let user_option = match get_user_by_name(user) {
                 Ok(user) => Some(user),
+                Err(ref err) if err.downcast_ref::<UsersError>() == Some(&UsersError::NotFound) => {
+                    None
+                },
                 Err(err) => {
-                    match err.downcast::<UsersError>() {
-                        Ok(users_error) => {
-                            match users_error {
-                                UsersError::UserNotFound { user: _ } => None,                          
-                                err => { 
-                                    println!("login: {}", err);
-                                    exit(1);
-                                }
-                            }
-                        },
-                        Err(err) => {
-                            println!("login: {}", err);
-                            exit(1);
-                        }
-                    }
+                    println!("login: {}", err);
+                    exit(1);
                 }
             };
 
