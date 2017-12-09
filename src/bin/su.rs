@@ -63,9 +63,13 @@ pub fn main() {
         parser.args[0].to_string()
     };
 
-    let uid = get_uid();
-    let user = get_user_by_name(&target_user).unwrap_or_else(|| {
-        eprintln!("su: user {} not found", target_user);
+    let uid = get_uid().unwrap_or_else(|err|{
+        eprintln!("su: {}", err);
+        exit(1);
+    });
+
+    let user = get_user_by_name(&target_user).unwrap_or_else(|err| {
+        eprintln!("su: {}", err);
         exit(1);
     });
 

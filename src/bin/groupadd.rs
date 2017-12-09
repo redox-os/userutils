@@ -71,13 +71,10 @@ fn main() {
     };
     
     match add_group(groupname, gid, &[""]) {
-        Ok(_) => {},
-        Err(ref err) if err.kind() == io::ErrorKind::AlreadyExists && parser.found("force") => {
-            exit(0);
-        },
+        Ok(_) => { },
         Err(err) => {
-            eprintln!("groupadd: {}: group {}", err, groupname);
-            exit(1);
+            eprintln!("groupadd: {}", err);
+            exit(1)
         }
     }
 }
