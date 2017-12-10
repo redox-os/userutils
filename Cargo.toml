@@ -46,6 +46,5 @@ liner = "0.1"
 rand = "0.3"
 redox_syscall = "0.1"
 redox_termios = "0.1"
-# TODO: Change this to the master branch
-redox_users = { git = "https://github.com/redox-os/users.git", branch = "goyox86/failure" }
+redox_users = { git = "https://github.com/redox-os/users.git" }
 termion = "1.5.1"
