@@ -84,7 +84,7 @@ dependencies = [
 [[package]]
 name = "extra"
 version = "0.1.0"
-source = "git+https://github.com/redox-os/libextra.git#402932084acd5fef4812945887ceaaa2ddd5f264"
+source = "git+https://github.com/redox-os/libextra.git#f38608acd9cc00e1c8bd41a1a96d31becf239913"
 
 [[package]]
 name = "failure"

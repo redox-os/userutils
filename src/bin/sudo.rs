@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
 extern crate arg_parser;
+extern crate extra;
 extern crate syscall;
 extern crate termion;
 extern crate redox_users;
@@ -11,6 +12,7 @@ use std::os::unix::process::CommandExt;
 use std::process::{Command, exit};
 
 use arg_parser::ArgParser;
+use extra::option::OptionalExt;
 use termion::input::TermRead;
 use redox_users::{get_uid, get_user_by_id, get_group_by_name};
 
@@ -65,21 +67,12 @@ pub fn main() {
         exit(1);
     });
 
-    let uid = get_uid().unwrap_or_else(|err| {
-        eprintln!("sudo: {}", err);
-        exit(1);
-    });
+    let uid = get_uid().unwrap_or_exit(1);
 
-    let user = get_user_by_id(uid).unwrap_or_else(|err| {
-        eprintln!("sudo: {}", err);
-        exit(1);
-    });
+    let user = get_user_by_id(uid).unwrap_or_exit(1);
 
     if uid != 0 {
-        let sudo_group = get_group_by_name("sudo").unwrap_or_else(|err| {
-            eprintln!("sudo: {}", err);
-            exit(1);
-        });
+        let sudo_group = get_group_by_name("sudo").unwrap_or_exit(1);
 
         if sudo_group.users.iter().any(|name| name == &user.user) {
             if ! user.hash.is_empty() {

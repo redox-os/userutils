@@ -57,22 +57,13 @@ fn main() {
         exit(0);
     }
 
-    let uid = get_uid().unwrap_or_else(|err| {
-        eprintln!("passwd: {}", err);
-        exit(1);
-    });
+    let uid = get_uid().unwrap_or_exit(1);
     
     let user = if parser.args.is_empty() {
-        get_user_by_id(uid).unwrap_or_else(|err| {
-            eprintln!("passwd: {}", err);
-            exit(1);
-        })
+        get_user_by_id(uid).unwrap_or_exit(1)
     } else {
         let username = &parser.args[0];
-        get_user_by_name(username).unwrap_or_else(|err| {
-            eprintln!("passwd: {}", err);
-            exit(1);
-        })
+        get_user_by_name(username).unwrap_or_exit(1)
     };
 
     let uid = uid as u32;
