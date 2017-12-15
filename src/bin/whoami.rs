@@ -48,15 +48,9 @@ fn main() {
         exit(0);
     }
 
-    let euid = get_euid().unwrap_or_else(|err| {
-        println!("whoami: {}", err);
-        exit(1);
-    });
+    let euid = get_euid().unwrap_or_exit(1);
 
-    let user = get_user_by_id(euid).unwrap_or_else(|err| {
-        println!("whoami: {}", err);
-        exit(1);
-    });
+    let user = get_user_by_id(euid).unwrap_or_exit(1);
 
     println!("{}", user.user);
     exit(0);

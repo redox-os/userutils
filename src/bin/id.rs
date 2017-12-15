@@ -97,15 +97,9 @@ pub fn main() {
             exit(1);
         }
 
-        let egid = get_egid().unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let egid = get_egid().unwrap_or_exit(1);
 
-        let gid = get_gid().unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let gid = get_gid().unwrap_or_exit(1);
 
         print_msg(&format!("{} {}\n", egid, gid), &mut stdout, &mut stderr);
         exit(0);
@@ -128,15 +122,9 @@ pub fn main() {
             get_euid()
         };
 
-        let uid = uid_result.unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let uid = uid_result.unwrap_or_exit(1);
 
-        let user = get_user_by_id(uid).unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let user = get_user_by_id(uid).unwrap_or_exit(1);
 
         print_msg(&format!("{}\n", user.user), &mut stdout, &mut stderr);
         exit(0);
@@ -144,10 +132,7 @@ pub fn main() {
 
     // Display real user ID
     if parser.found(&'u') && parser.found(&'r') {
-        let uid = get_uid().unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let uid = get_uid().unwrap_or_exit(1);
 
         print_msg(&format!("{}\n", uid), &mut stdout, &mut stderr);
         exit(0);
@@ -155,10 +140,7 @@ pub fn main() {
 
     // Display effective user ID
     if parser.found(&'u') {
-        let euid = get_euid().unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let euid = get_euid().unwrap_or_exit(1);
 
         print_msg(&format!("{}\n", euid), &mut stdout, &mut stderr);
         exit(0);
@@ -173,15 +155,9 @@ pub fn main() {
             get_egid()
         };
 
-        let gid = gid_result.unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let gid = gid_result.unwrap_or_exit(1);
 
-        let group = get_group_by_id(gid).unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let group = get_group_by_id(gid).unwrap_or_exit(1);
 
         print_msg(&format!("{}\n", group.group), &mut stdout, &mut stderr);
         exit(0);
@@ -189,10 +165,7 @@ pub fn main() {
 
     // Display the real group ID
     if parser.found(&'g') && parser.found(&'r') {
-        let gid = get_gid().unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let gid = get_gid().unwrap_or_exit(1);
 
         print_msg(&format!("{}\n", gid), &mut stdout, &mut stderr);
         exit(0);
@@ -200,10 +173,7 @@ pub fn main() {
 
     // Display effective group ID
     if parser.found(&'g') {
-        let egid = get_egid().unwrap_or_else(|err| {
-            eprintln!("id: {}", err);
-            exit(1);
-        });
+        let egid = get_egid().unwrap_or_exit(1);
 
         print_msg(&format!("{}\n", egid), &mut stdout, &mut stderr);
         exit(0);
@@ -222,25 +192,13 @@ pub fn main() {
     }
 
     // We get everything we can and show
-    let euid = get_euid().unwrap_or_else(|err| {
-        eprintln!("id: {}", err);
-        exit(1);
-    });
+    let euid = get_euid().unwrap_or_exit(1);
 
-    let egid = get_egid().unwrap_or_else(|err| {
-        eprintln!("id: {}", err);
-        exit(1);
-    });
+    let egid = get_egid().unwrap_or_exit(1);
 
-    let user = get_user_by_id(euid).unwrap_or_else(|err| {
-        eprintln!("id: {}", err);
-        exit(1);
-    });
+    let user = get_user_by_id(euid).unwrap_or_exit(1);
 
-    let group = get_group_by_id(egid).unwrap_or_else(|err| {
-        eprintln!("id: {}", err);
-        exit(1);
-    });
+    let group = get_group_by_id(egid).unwrap_or_exit(1);
 
     let msg = format!("uid={}({}) gid={}({})\n", euid, user.user, egid, group.group);
     print_msg(&msg, &mut stdout, &mut stderr);

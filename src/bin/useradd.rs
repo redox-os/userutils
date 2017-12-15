@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
 extern crate arg_parser;
+extern crate extra;
 extern crate redox_users;
 
 use std::{env, io};
@@ -10,6 +11,7 @@ use std::os::unix::fs::DirBuilderExt;
 use std::process::exit;
 
 use arg_parser::ArgParser;
+use extra::option::OptionalExt;
 use redox_users::{add_group, add_user, get_unique_group_id, get_unique_user_id};
 
 const MAN_PAGE: &'static str = /* @MANSTART{useradd} */ r#"
@@ -100,10 +102,7 @@ fn main() {
     
     let uid = if parser.found("uid") {
         match parser.get_opt("uid") {
-            Some(uid) => uid.parse::<u32>().unwrap_or_else(|err| {
-                eprintln!("useradd: invalid uid value: {}", err);
-                exit(1);
-            }),
+            Some(uid) => uid.parse::<u32>().unwrap_or_exit(1),
             None => {
                 eprintln!("useradd: missing uid value");
                 exit(1);
@@ -127,10 +126,7 @@ fn main() {
     } else {
         if parser.found("gid") {
             gid = match parser.get_opt("gid") {
-                Some(gid) => gid.parse::<u32>().unwrap_or_else(|err| {
-                    eprintln!("useradd: invalid argument to gid: {}", err);
-                    exit(1);
-                }),
+                Some(gid) => gid.parse::<u32>().unwrap_or_exit(1),
                 None => {
                     eprintln!("useradd: missing gid argument");
                     exit(1);

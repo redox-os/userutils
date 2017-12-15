@@ -63,15 +63,9 @@ pub fn main() {
         parser.args[0].to_string()
     };
 
-    let uid = get_uid().unwrap_or_else(|err|{
-        eprintln!("su: {}", err);
-        exit(1);
-    });
+    let uid = get_uid().unwrap_or_exit(1);
 
-    let user = get_user_by_name(&target_user).unwrap_or_else(|err| {
-        eprintln!("su: {}", err);
-        exit(1);
-    });
+    let user = get_user_by_name(&target_user).unwrap_or_exit(1);
 
     if uid > 0 || user.hash != "" {
         stdout.write_all(b"password: ").try(&mut stderr);
