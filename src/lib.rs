@@ -18,7 +18,7 @@
 
 extern crate redox_users;
 
-use std::process::Command;
+use std::process::{Command, ExitStatus};
 use std::os::unix::process::CommandExt;
 
 use redox_users::User;
@@ -49,7 +49,7 @@ use redox_users::User;
 /// This function can panic under two scenarios. The first, when an error occurs while
 /// spawning the new process containig the shell and the second, when after a succesful
 /// spawn, an error happens while trying to wait for the newly created process.
-pub fn spawn_shell(user: User) {
+pub fn spawn_shell(user: User) -> ExitStatus {
     let mut command = Command::new(&user.shell);
 
     command.uid(user.uid);
@@ -65,7 +65,7 @@ pub fn spawn_shell(user: User) {
 
     match command.spawn() {
         Ok(mut child) => match child.wait() {
-            Ok(_status) => (),
+            Ok(status) => status,
             Err(err) => panic!("userutils: failed to wait for '{}': {}", user.shell, err)
         },
         Err(err) => panic!("userutils: failed to execute '{}': {}", user.shell, err)

@@ -67,22 +67,34 @@ pub fn main() {
 
     let user = get_user_by_name(&target_user).unwrap_or_exit(1);
 
-    if uid > 0 || user.hash != "" {
+    // If we are root and the new user account has no password
+    if uid == 0 && user.hash == "" {
+        stdout.write(b"\n").try(&mut stderr);
+        stdout.flush().try(&mut stderr);
+
+        // Spawn a shell as the new user
+        exit(spawn_shell(user).code().unwrap_or(1));
+    } else {
+        // Ask for the new user account's password
         stdout.write_all(b"password: ").try(&mut stderr);
         stdout.flush().try(&mut stderr);
 
-        if let Some(password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
+        // Read the password, reading an empty string if CTRL-d is specified
+        let password = stdin.read_passwd(&mut stdout).try(&mut stderr).unwrap_or(String::new());
 
-            if user.verify_passwd(&password) {
-                spawn_shell(user);
-                exit(0);
-            } else {
-                stdout.write(b"su: authentication failed\n").try(&mut stderr);
-                stdout.flush().try(&mut stderr);
-                exit(1);
-            }
+        // Write a newline
+        stdout.write(b"\n").try(&mut stderr);
+        stdout.flush().try(&mut stderr);
+
+        // If the password is correct
+        if user.verify_passwd(&password) {
+            // Spawn a shell as the new user
+            exit(spawn_shell(user).code().unwrap_or(1));
         }
     }
 
-    spawn_shell(user);
+    // All other conditions will return an error
+    stderr.write(b"su: authentication failed\n").try(&mut stderr);
+    stderr.flush().try(&mut stderr);
+    exit(1);
 }
