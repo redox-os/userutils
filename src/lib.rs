@@ -18,56 +18,31 @@
 
 extern crate redox_users;
 
-use std::process::{Command, ExitStatus};
-use std::os::unix::process::CommandExt;
+use std::io::Result;
 
 use redox_users::User;
 
 /// Spawns a shell for the given `User`.
 ///
-/// The new the shell process will have set the users UID and GID, its CWD will be
-/// set to the users's home directory and the follwing enviroment variables will
-/// be populated like so:
-///
-///    - `USER` set to the user's `user` field.
-///    - `UID` set to the user's `uid` field.
-///    - `GROUPS` set the user's `gid` field.
-///    - `HOME` set to the user's `home` field.
-///    - `SHELL` set to the user's `shell` field.
+/// This function wraps the shell_cmd function of the User struct
+/// from redox_users and manages the child process. It is a blocking
+/// operation.
 ///
 /// # Examples
 ///
 /// ```
-/// use redox_users::get_user_by_name;
+/// use redox_users::AllUsers;
 ///
-/// let user = get_user_by_name("goyox86");
-/// spawn_shell(user);
+/// let sys_users = AllUsers::new().unwrap();
+/// let user = sys_users.get_by_name("goyox86");
+/// spawn_shell(user).unwrap();
 /// ```
-///
-/// # Panics
-///
-/// This function can panic under two scenarios. The first, when an error occurs while
-/// spawning the new process containig the shell and the second, when after a succesful
-/// spawn, an error happens while trying to wait for the newly created process.
-pub fn spawn_shell(user: User) -> ExitStatus {
-    let mut command = Command::new(&user.shell);
+pub fn spawn_shell(user: &User) -> Result<i32> {
+    let mut command = user.shell_cmd();
 
-    command.uid(user.uid);
-    command.gid(user.gid);
-
-    command.current_dir(&user.home);
-
-    command.env("USER", &user.user);
-    command.env("UID", format!("{}", user.uid));
-    command.env("GROUPS", format!("{}", user.gid));
-    command.env("HOME", &user.home);
-    command.env("SHELL", &user.shell);
-
-    match command.spawn() {
-        Ok(mut child) => match child.wait() {
-            Ok(status) => status,
-            Err(err) => panic!("userutils: failed to wait for '{}': {}", user.shell, err)
-        },
-        Err(err) => panic!("userutils: failed to execute '{}': {}", user.shell, err)
+    let mut child = command.spawn()?;
+    match child.wait()?.code() {
+        Some(code) => Ok(code),
+        None => Ok(1)
     }
 }

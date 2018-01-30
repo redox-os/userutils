@@ -14,7 +14,7 @@ use std::process::{Command, exit};
 use arg_parser::ArgParser;
 use extra::option::OptionalExt;
 use termion::input::TermRead;
-use redox_users::{get_uid, get_user_by_id, get_group_by_name};
+use redox_users::{get_uid, AllUsers, AllGroups};
 
 const MAX_ATTEMPTS: u16 = 3;
 const MAN_PAGE: &'static str = /* @MANSTART{sudo} */ r#"
@@ -66,17 +66,20 @@ pub fn main() {
         eprintln!("sudo: no command provided");
         exit(1);
     });
-
+    
+    let users = AllUsers::new().unwrap_or_exit(1);
+    let groups = AllGroups::new().unwrap_or_exit(1);
+    
     let uid = get_uid().unwrap_or_exit(1);
 
-    let user = get_user_by_id(uid).unwrap_or_exit(1);
+    let user = users.get_by_id(uid).unwrap_or_exit(1);
 
     if uid != 0 {
-        let sudo_group = get_group_by_name("sudo").unwrap_or_exit(1);
+        let sudo_group = groups.get_by_name("sudo").unwrap_or_exit(1);
 
         if sudo_group.users.iter().any(|name| name == &user.user) {
-            if ! user.hash.is_empty() {
-                let max_attempts = MAX_ATTEMPTS;
+            //If the user's password is not empty...
+            if !user.is_passwd_blank() {
                 let mut attempts = 0;
 
                 loop {
@@ -92,8 +95,8 @@ pub fn main() {
                                 break;
                             } else {
                                 attempts += 1;
-                                eprintln!("sudo: incorrect password ({}/{})", attempts, max_attempts);
-                                if attempts >= max_attempts {
+                                eprintln!("sudo: incorrect password ({}/{})", attempts, MAX_ATTEMPTS);
+                                if attempts >= MAX_ATTEMPTS {
                                     exit(1);
                                 }
                             }

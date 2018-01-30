@@ -9,7 +9,7 @@ use std::process::exit;
 use std::env;
 use arg_parser::ArgParser;
 use extra::option::OptionalExt;
-use redox_users::{get_euid, get_user_by_id};
+use redox_users::{get_euid, AllUsers};
 
 const MAN_PAGE: &'static str = /* @MANSTART{whoami} */ r#"
 NAME
@@ -49,8 +49,9 @@ fn main() {
     }
 
     let euid = get_euid().unwrap_or_exit(1);
-
-    let user = get_user_by_id(euid).unwrap_or_exit(1);
+    
+    let users = AllUsers::new().unwrap_or_exit(1);
+    let user = users.get_by_id(euid).unwrap_or_exit(1);
 
     println!("{}", user.user);
     exit(0);

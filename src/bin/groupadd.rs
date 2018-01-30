@@ -11,7 +11,7 @@ use std::io::Write;
 use std::process::exit;
 
 use arg_parser::ArgParser;
-use redox_users::{add_group, get_group_by_id, get_unique_group_id, UsersError};
+use redox_users::{AllGroups, UsersError};
 
 const MAN_PAGE: &'static str = /* @MANSTART{groupadd} */ r#"
 NAME
@@ -60,6 +60,8 @@ fn main() {
         stdout.flush().try(&mut stderr);
         exit(0);
     }
+    
+    let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
 
     let groupname = if parser.args.is_empty() {
         eprintln!("groupadd: no group name specified");
@@ -69,23 +71,19 @@ fn main() {
     };
 
     let gid = if let Some(gid) = parser.get_opt("gid") {
-        let gid = gid.parse::<u32>().unwrap_or_exit(1);
+        let gid = gid.parse::<usize>().unwrap_or_exit(1);
 
-        match get_group_by_id(gid as usize) {
-            Ok(_) => {
+        match sys_groups.get_by_id(gid) {
+            Some(_) => {
                 eprintln!("groupadd: group already exists");
                 exit(1);
             },
-            Err(ref err) if err.downcast_ref::<UsersError>() == Some(&UsersError::AlreadyExists) => {
+            None => {
                 gid
-            },
-            Err(err) => {
-                eprintln!("groupadd: {}", err);
-                exit(1);
             }
         }
     } else {
-        match get_unique_group_id() {
+        match sys_groups.get_unique_id() {
             Some(gid) => gid,
             None => {
                 eprintln!("groupadd: no available gid");
@@ -94,7 +92,7 @@ fn main() {
         }
     };
 
-    match add_group(groupname, gid, &[""]) {
+    match sys_groups.add_group(groupname, gid, &[""]) {
         Ok(_) => { },
         Err(ref err) if err.downcast_ref::<UsersError>() == Some(&UsersError::AlreadyExists) && parser.found("force") => {
             exit(0);
@@ -104,4 +102,5 @@ fn main() {
             exit(1);
         }
     }
+    sys_groups.save().unwrap_or_exit(1);
 }

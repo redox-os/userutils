@@ -14,7 +14,7 @@ use std::str;
 use arg_parser::ArgParser;
 use extra::option::OptionalExt;
 use termion::input::TermRead;
-use redox_users::{get_uid, get_user_by_name};
+use redox_users::{get_uid, AllUsers};
 use userutils::spawn_shell;
 
 const MAN_PAGE: &'static str = /* @MANSTART{su} */ r#"
@@ -52,8 +52,7 @@ pub fn main() {
 
     // Shows the help
     if parser.found("help") {
-        stdout.write_all(MAN_PAGE.as_bytes()).try(&mut stderr);
-        stdout.flush().try(&mut stderr);
+        write!(stdout, "{}", MAN_PAGE).unwrap_or_exit(1);
         exit(0);
     }
 
@@ -64,37 +63,29 @@ pub fn main() {
     };
 
     let uid = get_uid().unwrap_or_exit(1);
+    
+    let users = AllUsers::new().unwrap_or_exit(1);
+    let user = users.get_by_name(&target_user).unwrap_or_exit(1);
 
-    let user = get_user_by_name(&target_user).unwrap_or_exit(1);
-
-    // If we are root and the new user account has no password
-    if uid == 0 && user.hash == "" {
-        stdout.write(b"\n").try(&mut stderr);
-        stdout.flush().try(&mut stderr);
-
-        // Spawn a shell as the new user
-        exit(spawn_shell(user).code().unwrap_or(1));
+    // If the user executing su is root, then they can do anything without a password.
+    // Same if the user we're being asked to login as doesn't have a password.
+    if uid == 0 || user.is_passwd_blank() {
+        writeln!(stdout).unwrap_or_exit(1);
+        exit(spawn_shell(user).unwrap_or_exit(1));
     } else {
-        // Ask for the new user account's password
-        stdout.write_all(b"password: ").try(&mut stderr);
-        stdout.flush().try(&mut stderr);
+        write!(stdout, "password: ").unwrap_or_exit(1);
+        stdout.flush().unwrap_or_exit(1);
 
         // Read the password, reading an empty string if CTRL-d is specified
         let password = stdin.read_passwd(&mut stdout).try(&mut stderr).unwrap_or(String::new());
 
-        // Write a newline
-        stdout.write(b"\n").try(&mut stderr);
-        stdout.flush().try(&mut stderr);
+        writeln!(stderr, "\n").unwrap_or_exit(1);
 
-        // If the password is correct
         if user.verify_passwd(&password) {
-            // Spawn a shell as the new user
-            exit(spawn_shell(user).code().unwrap_or(1));
+            exit(spawn_shell(user).unwrap_or_exit(1));
+        } else {
+            writeln!(stderr, "su: authentication failed").unwrap_or_exit(1);
+            exit(1);
         }
     }
-
-    // All other conditions will return an error
-    stderr.write(b"su: authentication failed\n").try(&mut stderr);
-    stderr.flush().try(&mut stderr);
-    exit(1);
 }

@@ -12,7 +12,7 @@ use std::process::exit;
 
 use arg_parser::ArgParser;
 use extra::option::OptionalExt;
-use redox_users::{add_group, add_user, get_unique_group_id, get_unique_user_id};
+use redox_users::{AllGroups, AllUsers};
 
 const MAN_PAGE: &'static str = /* @MANSTART{useradd} */ r#"
 NAME
@@ -100,16 +100,19 @@ fn main() {
         &parser.args[0]
     };
     
+    let mut sys_users = AllUsers::new().unwrap_or_exit(1);
+    let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
+    
     let uid = if parser.found("uid") {
         match parser.get_opt("uid") {
-            Some(uid) => uid.parse::<u32>().unwrap_or_exit(1),
+            Some(uid) => uid.parse::<usize>().unwrap_or_exit(1),
             None => {
                 eprintln!("useradd: missing uid value");
                 exit(1);
             }
         }
     } else {
-        match get_unique_user_id() {
+        match sys_users.get_unique_id() {
             Some(id) => id,
             None => {
                 eprintln!("useradd: no available uid");
@@ -119,21 +122,21 @@ fn main() {
     };
     
     //This is a ridiculous mess and could use reworking
-    let gid: u32;
+    let gid: usize;
     if parser.found("no-user-group") {
         gid = 99;
         //TODO: Add this user to the "nobody" group
     } else {
         if parser.found("gid") {
             gid = match parser.get_opt("gid") {
-                Some(gid) => gid.parse::<u32>().unwrap_or_exit(1),
+                Some(gid) => gid.parse::<usize>().unwrap_or_exit(1),
                 None => {
                     eprintln!("useradd: missing gid argument");
                     exit(1);
                 }
             };
         } else {
-            gid = match get_unique_group_id() {
+            gid = match sys_groups.get_unique_id() {
                 Some(id) => id,
                 None => {
                     eprintln!("useradd: no available gid");
@@ -141,7 +144,7 @@ fn main() {
                 }
             };
         }
-        match add_group(login, gid, &[login]) {
+        match sys_groups.add_group(login, gid, &[login]) {
             Ok(_) => {},
             Err(err) => {
                 eprintln!("useradd: error creating group {}: {}", login, err);
@@ -188,7 +191,7 @@ fn main() {
         DEFAULT_SHELL.to_string()
     };
     
-    match add_user(login, uid, gid, username.as_str(), userhome.as_str(), shell.as_str()) {
+    match sys_users.add_user(login, uid, gid, username.as_str(), userhome.as_str(), shell.as_str()) {
         Ok(_) => {},
         Err(err) => {
             eprintln!("useradd: {}: {}", err, login);
@@ -209,4 +212,6 @@ fn main() {
             }
         };
     }
+    sys_users.save().unwrap_or_exit(1);
+    sys_groups.save().unwrap_or_exit(1);
 }

@@ -11,7 +11,7 @@ use std::process::exit;
 use extra::io::fail;
 use extra::option::OptionalExt;
 use arg_parser::{ArgParser, Param};
-use redox_users::{get_egid, get_gid, get_euid, get_uid, get_user_by_id, get_group_by_id};
+use redox_users::{get_egid, get_gid, get_euid, get_uid, AllUsers, AllGroups};
 
 const HELP_INFO: &'static str = "Try ‘id --help’ for more information.\n";
 const MAN_PAGE: &'static str = /* @MANSTART{id} */ r#"
@@ -86,6 +86,9 @@ pub fn main() {
         print_msg(HELP_INFO, &mut stdout, &mut stderr);
         exit(1);
     }
+    
+    let groups = AllGroups::new().unwrap_or_exit(1);
+    let users = AllUsers::new().unwrap_or_exit(1);
 
     // Display the different group IDs (effective and real)
     // as white-space separated numbers, in no particular order.
@@ -123,8 +126,7 @@ pub fn main() {
         };
 
         let uid = uid_result.unwrap_or_exit(1);
-
-        let user = get_user_by_id(uid).unwrap_or_exit(1);
+        let user = users.get_by_id(uid).unwrap_or_exit(1);
 
         print_msg(&format!("{}\n", user.user), &mut stdout, &mut stderr);
         exit(0);
@@ -156,8 +158,9 @@ pub fn main() {
         };
 
         let gid = gid_result.unwrap_or_exit(1);
-
-        let group = get_group_by_id(gid).unwrap_or_exit(1);
+        
+        let groups = AllGroups::new().unwrap_or_exit(1);
+        let group = groups.get_by_id(gid).unwrap_or_exit(1);
 
         print_msg(&format!("{}\n", group.group), &mut stdout, &mut stderr);
         exit(0);
@@ -195,10 +198,10 @@ pub fn main() {
     let euid = get_euid().unwrap_or_exit(1);
 
     let egid = get_egid().unwrap_or_exit(1);
+    
+    let user = users.get_by_id(euid).unwrap_or_exit(1);
 
-    let user = get_user_by_id(euid).unwrap_or_exit(1);
-
-    let group = get_group_by_id(egid).unwrap_or_exit(1);
+    let group = groups.get_by_id(egid).unwrap_or_exit(1);
 
     let msg = format!("uid={}({}) gid={}({})\n", euid, user.user, egid, group.group);
     print_msg(&msg, &mut stdout, &mut stderr);

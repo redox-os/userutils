@@ -16,7 +16,7 @@ use std::str;
 use extra::option::OptionalExt;
 use arg_parser::ArgParser;
 use termion::input::TermRead;
-use redox_users::{get_user_by_name, UsersError};
+use redox_users::{AllUsers};
 use userutils::spawn_shell;
 
 const MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
@@ -67,22 +67,12 @@ pub fn main() {
             .read_line("\x1B[1mredox login:\x1B[0m ", &mut |_| {})
             .try(&mut stderr);
 
-        if ! user.is_empty() {
+        if !user.is_empty() {
             let stdin = io::stdin();
             let mut stdin = stdin.lock();
+            let sys_users = AllUsers::new().unwrap_or_exit(1);
 
-            let user_option = match get_user_by_name(user) {
-                Ok(user) => Some(user),
-                Err(ref err) if err.downcast_ref::<UsersError>() == Some(&UsersError::NotFound) => {
-                    None
-                },
-                Err(err) => {
-                    println!("login: {}", err);
-                    exit(1);
-                }
-            };
-
-            match user_option {
+            match sys_users.get_by_name(user) {
                 None => {
                     stdout.write(b"\nLogin incorrect\n").try(&mut stderr);
                     stdout.write(b"\n").try(&mut stderr);
@@ -90,13 +80,13 @@ pub fn main() {
                     continue;
                 },
                 Some(user) => {
-                    if user.hash == "" {
+                    if user.is_passwd_blank() {
                         if let Ok(mut motd) = File::open(MOTD_FILE) {
                             io::copy(&mut motd, &mut stdout).try(&mut stderr);
                             stdout.flush().try(&mut stderr);
                         }
 
-                        spawn_shell(user);
+                        spawn_shell(user).unwrap_or_exit(1);
                         break;
                     }
 
@@ -112,7 +102,7 @@ pub fn main() {
                                 stdout.flush().try(&mut stderr);
                             }
 
-                            spawn_shell(user);
+                            spawn_shell(user).unwrap_or_exit(1);
                             break;
                         }
                     }
