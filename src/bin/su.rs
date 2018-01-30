@@ -14,7 +14,7 @@ use std::str;
 use arg_parser::ArgParser;
 use extra::option::OptionalExt;
 use termion::input::TermRead;
-use redox_users::{get_euid, get_uid, AllUsers};
+use redox_users::{get_uid, AllUsers};
 use userutils::spawn_shell;
 
 const MAN_PAGE: &'static str = /* @MANSTART{su} */ r#"
