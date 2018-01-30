@@ -2,16 +2,17 @@
 
 extern crate arg_parser;
 extern crate extra;
+extern crate syscall;
 extern crate redox_users;
 
 use std::{env, io};
 use std::io::Write;
-use std::fs::DirBuilder;
-use std::os::unix::fs::DirBuilderExt;
 use std::process::exit;
 
 use arg_parser::ArgParser;
 use extra::option::OptionalExt;
+use syscall::call::{open, fchmod, fchown};
+use syscall::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
 use redox_users::{AllGroups, AllUsers};
 
 const MAN_PAGE: &'static str = /* @MANSTART{useradd} */ r#"
@@ -25,9 +26,13 @@ SYNOPSYS
 DESCRIPTION
     The useradd utility creates a new user based on
     system defaults and values passed on the command line.
-    
+
     Useradd creates a new group for the user by default and
     can also be instructed to create the user's home directory.
+
+    Note that useradd creates a new user with the password
+    unset (no login). This is better documented with the
+    redox_users crate.
 
 OPTIONS
     -h, --help
@@ -71,12 +76,12 @@ AUTHORS
 "#; /* @MANEND */
 const DEFAULT_SHELL: &'static str = "/bin/ion";
 const DEFAULT_HOME: &'static str = "/home";
-const DEFAULT_MODE: u32 = 0o700;
+const DEFAULT_MODE: u16 = 0o700;
 
 fn main() {
     let mut stdout = io::stdout();
     
-    let mut parser = ArgParser::new(1)
+    let mut parser = ArgParser::new(8)
         .add_flag(&["h", "help"])
         .add_opt("c", "comment")
         .add_opt("d", "home-dir")
@@ -199,19 +204,15 @@ fn main() {
         }
     }
     
-    if parser.found("create-home") {
-        let mut builder = DirBuilder::new();
-        builder.mode(DEFAULT_MODE);
-        
-        match builder.create(&userhome) {
-            Ok(_) => {},
-            Err(ref err) if err.kind() == io::ErrorKind::AlreadyExists => {},
-            Err(err) => {
-                eprintln!("useradd: failed to create home dir: {}", err);
-                exit(1);
-            }
-        };
-    }
+    // Make sure to try and create the user before we create
+    // their home, that way we get a permissions error that makes
+    // more sense
     sys_users.save().unwrap_or_exit(1);
     sys_groups.save().unwrap_or_exit(1);
+    
+    if parser.found("create-home") {
+        let fd = open(userhome, O_CREAT | O_DIRECTORY | O_CLOEXEC).unwrap_or_exit(1);
+        fchmod(fd, DEFAULT_MODE).unwrap_or_exit(1);
+        fchown(fd, uid as u32, gid as u32).unwrap_or_exit(1);
+    }
 }
