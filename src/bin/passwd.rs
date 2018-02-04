@@ -29,9 +29,14 @@ DESCRIPTION
 
 OPTIONS
 
-    -h
-    --help
+    -h, --help
         Display this help and exit.
+
+    -l, --lock
+        Lock the password of the named account. This changes the stored password
+        hash so that it matches no encrypted value ("!")
+        
+        Users with locked passwords are not allowed to change their password.
 
 AUTHOR
     Written by Jeremy Soller, Jose Narvaez.
@@ -60,13 +65,21 @@ fn main() {
     
     {
         let user = if parser.args.is_empty() {
-            users.get_mut_by_id(uid).unwrap_or_exit(1)
+            users.get_mut_by_id(uid).unwrap_or_else(|| {
+                eprintln!("passwd: you do not exist");
+                exit(1);
+            })
         } else {
             let username = &parser.args[0];
-            users.get_mut_by_name(username).unwrap_or_exit(1)
+            users.get_mut_by_name(username).unwrap_or_else(|| {
+                eprintln!("passwd: user does not exist: {}", username);
+                exit(1);
+            })
         };
-
-        if user.uid == uid || uid == 0 {
+        
+        if parser.found("lock") {
+            user.unset_passwd();
+        } else if user.uid == uid || uid == 0 {
             let msg = format!("changing password for '{}' \n", user.user);
             stdout.write_all(&msg.as_bytes()).try(&mut stderr);
             stdout.flush().try(&mut stderr);
@@ -74,6 +87,8 @@ fn main() {
             let mut verified = false;
             if user.is_passwd_blank() {
                 verified = true;
+            } else if user.is_passwd_unset() {
+                verified = false;
             } else if user.uid == uid || uid != 0 {
                 stdout.write_all(b"current password: ").try(&mut stderr);
                 stdout.flush().try(&mut stderr);
