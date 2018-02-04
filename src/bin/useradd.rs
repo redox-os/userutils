@@ -4,6 +4,7 @@ extern crate arg_parser;
 extern crate extra;
 extern crate syscall;
 extern crate redox_users;
+extern crate userutils;
 
 use std::{env, io};
 use std::io::Write;
@@ -11,9 +12,8 @@ use std::process::exit;
 
 use arg_parser::ArgParser;
 use extra::option::OptionalExt;
-use syscall::call::{open, fchmod, fchown};
-use syscall::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
 use redox_users::{AllGroups, AllUsers};
+use userutils::create_user_dir;
 
 const MAN_PAGE: &'static str = /* @MANSTART{useradd} */ r#"
 NAME
@@ -40,15 +40,16 @@ OPTIONS
 
     -c, --comment
         Any text string, usually used as the user's full name.
+        Historically known as the GECOS field
 
     -d, --home-dir HOME_DIR
         The new user will be created with HOME_DIR as their home
-        directory. The default value is LOGIN prepended with "/home".
-        This flag DOES NOT create the home directory. See --create-home.
+        directory. The default value is LOGIN prepended with "/home/".
+        This flag DOES NOT create the home directory. See --create-home
 
     -g, --gid GID
-        The group id to use for the default login group. This value must
-        not be in use and must be non-negative. The default is to pick the
+        The group id to use when creating the default login group. This value
+        must not be in use and must be non-negative. The default is to pick the
         smallest available group id between values defined in redox_users.
 
     -m, --create-home
@@ -56,14 +57,14 @@ OPTIONS
         
         This option is not enabled by default. This option must be specified
         for a home directory to be created. If not set, the user's home dir is
-        set to "/".
+        set to "/"
 
     -N, --no-user-group
         Do not attempt to create the user's user group. Instead, the groupid
-        is set to 99 (should be the "nobody" group).
+        is set to 99 ("nobody"). -N and -g are mutually exclusive.
 
     -s, --shell SHELL
-        The path to the user's default login shell. If left blank, the
+        The path to the user's default login shell. If not specified, the
         default shell is set as "/bin/ion"
 
     -u, --uid UID
@@ -76,7 +77,6 @@ AUTHORS
 "#; /* @MANEND */
 const DEFAULT_SHELL: &'static str = "/bin/ion";
 const DEFAULT_HOME: &'static str = "/home";
-const DEFAULT_MODE: u16 = 0o700;
 
 fn main() {
     let mut stdout = io::stdout();
@@ -106,11 +106,18 @@ fn main() {
     };
     
     let mut sys_users = AllUsers::new().unwrap_or_exit(1);
-    let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
+    let mut sys_groups;
     
     let uid = if parser.found("uid") {
         match parser.get_opt("uid") {
-            Some(uid) => uid.parse::<usize>().unwrap_or_exit(1),
+            Some(uid) => {
+                let id = uid.parse::<usize>().unwrap_or_exit(1);
+                if let Some(_user) = sys_users.get_by_id(id) {
+                    eprintln!("useradd: user already exists with uid: {}", id);
+                    exit(1);
+                }
+                id
+            },
             None => {
                 eprintln!("useradd: missing uid value");
                 exit(1);
@@ -129,12 +136,29 @@ fn main() {
     //This is a ridiculous mess and could use reworking
     let gid: usize;
     if parser.found("no-user-group") {
+        sys_groups = AllGroups::new().unwrap_or_exit(1);
         gid = 99;
-        //TODO: Add this user to the "nobody" group
+        {
+            let nobody = sys_groups.get_mut_by_name("nobody").unwrap_or_else(|| {
+                eprintln!("useradd: group \"nobody\" not found");
+                exit(1)
+            });
+            nobody.users.push(String::from(login.as_str()));
+        }
+        sys_groups.save().unwrap_or_exit(1);
     } else {
+        sys_groups = AllGroups::new().unwrap_or_exit(1);
+        
         if parser.found("gid") {
             gid = match parser.get_opt("gid") {
-                Some(gid) => gid.parse::<usize>().unwrap_or_exit(1),
+                Some(gid) => {
+                    let id = gid.parse::<usize>().unwrap_or_exit(1);
+                    if let Some(_group) = sys_groups.get_by_id(id) {
+                        eprintln!("useradd: group already exists with gid: {}", id);
+                        exit(1);
+                    }
+                    id
+                },
                 None => {
                     eprintln!("useradd: missing gid argument");
                     exit(1);
@@ -156,6 +180,7 @@ fn main() {
                 exit(1);
             }
         }
+        sys_groups.save().unwrap_or_exit(1);
     }
     
     let username = if parser.found("comment") {
@@ -204,15 +229,16 @@ fn main() {
         }
     }
     
+    println!("Got info: {};{};{};{};{};{}", login, uid, gid, username, userhome, shell);
+    
     // Make sure to try and create the user before we create
     // their home, that way we get a permissions error that makes
     // more sense
     sys_users.save().unwrap_or_exit(1);
-    sys_groups.save().unwrap_or_exit(1);
     
     if parser.found("create-home") {
-        let fd = open(userhome, O_CREAT | O_DIRECTORY | O_CLOEXEC).unwrap_or_exit(1);
-        fchmod(fd, DEFAULT_MODE).unwrap_or_exit(1);
-        fchown(fd, uid as u32, gid as u32).unwrap_or_exit(1);
+        //Shouldn't ever error...
+        let user = sys_users.get_by_id(uid).unwrap_or_exit(1);
+        create_user_dir(user, userhome).unwrap_or_exit(1);
     }
 }

@@ -17,10 +17,16 @@
 //! - `whoami`: Display effective user ID.
 
 extern crate redox_users;
+extern crate syscall;
 
 use std::io::Result;
 
 use redox_users::User;
+use syscall::call::{open, fchmod, fchown};
+use syscall::error::Result as SysResult;
+use syscall::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
+
+const DEFAULT_MODE: u16 = 0o700;
 
 /// Spawns a shell for the given `User`.
 ///
@@ -45,4 +51,14 @@ pub fn spawn_shell(user: &User) -> Result<i32> {
         Some(code) => Ok(code),
         None => Ok(1)
     }
+}
+
+
+pub fn create_user_dir<T>(user: &User, dir: T) -> SysResult<()>
+    where T: AsRef<str> + std::convert::AsRef<[u8]>
+{
+    let fd = open(dir, O_CREAT | O_DIRECTORY | O_CLOEXEC)?;
+    fchmod(fd, DEFAULT_MODE)?;
+    fchown(fd, user.uid as u32, user.gid as u32)?;
+    Ok(())
 }
