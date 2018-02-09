@@ -1,24 +1,22 @@
 #![deny(warnings)]
 
-extern crate arg_parser;
+#[macro_use]
+extern crate clap;
 extern crate extra;
 extern crate redox_users;
 
 use extra::option::OptionalExt;
 
-use std::{io, env};
-use std::io::Write;
 use std::process::exit;
 
-use arg_parser::ArgParser;
 use redox_users::{AllGroups, UsersError};
 
-const MAN_PAGE: &'static str = /* @MANSTART{groupadd} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{groupadd} */ r#"
 NAME
     groupadd - add a user group
 
 SYNOPSIS
-    groupadd [ -f | --force ] group
+    groupadd [ -f | --force ] GROUP
     groupadd [ -h | --help ]
 
 DESCRIPTION
@@ -44,57 +42,36 @@ AUTHOR
 "#; /* @MANEND */
 
 fn main() {
-    let stdout = io::stdout();
-    let mut stdout = stdout.lock();
-    let mut stderr = io::stderr();
-
-    let mut parser = ArgParser::new(1)
-        .add_flag(&["h", "help"])
-        .add_flag(&["f", "force"])
-        .add_opt("g", "gid");
-    parser.parse(env::args());
-
-    // Shows the help
-    if parser.found("help") {
-        stdout.write_all(MAN_PAGE.as_bytes()).try(&mut stderr);
-        stdout.flush().try(&mut stderr);
-        exit(0);
-    }
+    let args = clap_app!(groupadd =>
+        (author: "Wesley Hershberger")
+        (about: "Add groups based on the system's redox_users backend")
+        (@arg GROUP: +required  "Add group GROUP")
+        (@arg FORCE: -f --force "Force the status of the program to be 0 even if the group exists")
+        (@arg GID:   -g --gid   "Group id. Positive integer and must not be in use")
+    ).get_matches();
     
     let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
 
-    let groupname = if parser.args.is_empty() {
-        eprintln!("groupadd: no group name specified");
-        exit(1);
-    } else {
-        &parser.args[0]
-    };
+    let groupname = args.value_of("GROUP").unwrap();
 
-    let gid = if let Some(gid) = parser.get_opt("gid") {
-        let gid = gid.parse::<usize>().unwrap_or_exit(1);
-
-        match sys_groups.get_by_id(gid) {
-            Some(_) => {
+    let gid = match args.value_of("GID") {
+        Some(gid) => {
+            let id = gid.parse::<usize>().unwrap_or_exit(1);
+            if let Some(_group) = sys_groups.get_by_id(id) {
                 eprintln!("groupadd: group already exists");
                 exit(1);
-            },
-            None => {
-                gid
             }
-        }
-    } else {
-        match sys_groups.get_unique_id() {
-            Some(gid) => gid,
-            None => {
-                eprintln!("groupadd: no available gid");
-                exit(1);
-            }
-        }
+            id
+        },
+        None => sys_groups.get_unique_id().unwrap_or_else(|| {
+                    eprintln!("groupadd: no available gid");
+                    exit(1);
+                })
     };
 
     match sys_groups.add_group(groupname, gid, &[""]) {
         Ok(_) => { },
-        Err(ref err) if err.downcast_ref::<UsersError>() == Some(&UsersError::AlreadyExists) && parser.found("force") => {
+        Err(ref err) if err.downcast_ref::<UsersError>() == Some(&UsersError::AlreadyExists) && args.is_present("FORCE") => {
             exit(0);
         },
         Err(err) => {

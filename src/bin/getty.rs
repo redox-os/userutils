@@ -1,21 +1,20 @@
 #![deny(warnings)]
 
+#[macro_use]
+extern crate clap;
 extern crate redox_termios;
 extern crate syscall;
-extern crate arg_parser;
 extern crate extra;
 
-use std::{env, process, str};
+use std::str;
 use std::fs::File;
-use std::io::{self, ErrorKind, Read, Write, Stderr};
+use std::io::{self, ErrorKind, Read, Stderr};
 use std::os::unix::io::{FromRawFd, RawFd};
-use std::process::{exit, Child, Command, Stdio};
+use std::process::{Child, Command, Stdio};
 
-use arg_parser::ArgParser;
 use extra::io::fail;
-use extra::option::OptionalExt;
 
-const MAN_PAGE: &'static str = /* @MANSTART{getty} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{getty} */ r#"
 NAME
     getty - set terminal mode
 
@@ -29,19 +28,16 @@ DESCRIPTION
 
 OPTIONS
 
-    -h
-    --help
+    -h, --help
         Display this help and exit.
 
-    -J
-    --noclear
+    -J, --noclear
         Do not clear the screen before forking login(1).
 
 AUTHOR
     Written by Jeremy Soller.
 "#; /* @MANEND */
 
-const HELP_INFO: &'static str = "Try ‘getty --help’ for more information.\n";
 const DEFAULT_COLS: u32 = 80;
 const DEFAULT_LINES: u32 = 30;
 
@@ -182,37 +178,18 @@ fn daemon(tty_fd: RawFd, clear: bool, stderr: &mut Stderr) {
 }
 
 pub fn main() {
-    let mut stdout = io::stdout();
     let mut stderr = io::stderr();
 
-    let mut parser = ArgParser::new(1)
-        .add_flag(&["h", "help"])
-        .add_flag(&["J", "noclear"]);
-    parser.parse(env::args());
+    let args = clap_app!(getty =>
+        (author: "Jeremy Soller")
+        (about: "Set terminal mode")
+        (@arg TTY: +required "")
+        (@arg NO_CLEAR: -J --("no-clear") "Do not clear the screen before forking")
+    ).get_matches();
 
-    if parser.found("help") {
-        stdout.write_all(MAN_PAGE.as_bytes()).try(&mut stderr);
-        stdout.flush().try(&mut stderr);;
-        exit(0);
-    }
+    let clear = !args.is_present("NO_CLEAR");
 
-    if let Err(err) = parser.found_invalid() {
-        stderr.write_all(err.as_bytes()).try(&mut stderr);
-        stdout.write_all(HELP_INFO.as_bytes()).try(&mut stderr);
-        stderr.flush().try(&mut stderr);
-        process::exit(1);
-    }
-
-    let mut clear = true;
-    if parser.found("noclear") {
-        clear = false
-    }
-
-    if parser.args.len() < 1 {
-        fail("getty: no TTY provided", &mut stderr);
-    }
-
-    let tty = &parser.args[0];
+    let tty = args.value_of("TTY").unwrap();
     let tty_fd = match syscall::open(tty, syscall::O_CLOEXEC | syscall::flag::O_RDWR | syscall::flag::O_NONBLOCK) {
         Ok(fd) => fd,
         Err(err) => fail(&format!("getty: failed to open TTY {}: {}", tty, err), &mut stderr),

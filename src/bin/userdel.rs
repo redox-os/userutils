@@ -1,19 +1,17 @@
 #[deny(warnings)]
 
-extern crate arg_parser;
+#[macro_use]
+extern crate clap;
 extern crate extra;
 extern crate redox_users;
 
-use std::env;
-use std::io::{stdout, Write};
 use std::fs::remove_dir;
 use std::process::exit;
 
-use arg_parser::ArgParser;
 use extra::option::OptionalExt;
 use redox_users::AllUsers;
 
-const MAN_PAGE: &'static str =  /* @MANSTART{userdel} */ r#"
+const _MAN_PAGE: &'static str =  /* @MANSTART{userdel} */ r#"
 NAME
     userdel - modify system files to delete users
 
@@ -43,25 +41,14 @@ AUTHORS
 "#; /* @MANEND */
 
 fn main() {
-    let mut stdout = stdout();
+    let args = clap_app!(userdel =>
+        (author: "Wesley Hershberger")
+        (about: "Removes system users using redox_users")
+        (@arg LOGIN: +required "Remove user LOGIN")
+        (@arg REMOVE: -r --remove "Remove the user's home and all files and directories inside")
+    ).get_matches();
     
-    let mut parser = ArgParser::new(9)
-        .add_flag(&["h", "help"])
-        .add_flag(&["r", "remove"]);
-    parser.parse(env::args());
-    
-    if parser.found("help") {
-        stdout.write_all(MAN_PAGE.as_bytes()).unwrap();
-        stdout.flush().unwrap();
-        exit(0);
-    }
-    
-    let login = if parser.args.is_empty() {
-        eprintln!("userdel: no login specified");
-        exit(1);
-    } else {
-        &parser.args[0]
-    };
+    let login = args.value_of("LOGIN").unwrap();
     
     let mut sys_users = AllUsers::new().unwrap_or_exit(1);
     {
@@ -70,7 +57,7 @@ fn main() {
             exit(1);
         });
         
-        if parser.found("remove") {
+        if args.is_present("REMOVE") {
             remove_dir(&user.home).unwrap_or_exit(1);
         }
     }

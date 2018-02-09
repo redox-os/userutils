@@ -1,18 +1,16 @@
 #[deny(warnings)]
 
-extern crate arg_parser;
+#[macro_use]
+extern crate clap;
 extern crate extra;
 extern crate redox_users;
 
-use std::env;
-use std::io::{stdout, Write};
 use std::process::exit;
 
-use arg_parser::ArgParser;
 use extra::option::OptionalExt;
 use redox_users::AllGroups;
 
-const MAN_PAGE: &'static str =  /* @MANSTART{groupmod} */ r#"
+const _MAN_PAGE: &'static str =  /* @MANSTART{groupmod} */ r#"
 NAME
     groupmod - modify group information
 
@@ -45,48 +43,33 @@ AUTHORS
 "#; /* @MANEND */
 
 fn main() {
-    let mut stdout = stdout();
+    let args = clap_app!(groupmod =>
+        (author: "Wesley Hershberger")
+        (about: "Modify users according to the system's redox_users backend")
+        (@arg GROUP:          +required    "Modify GROUP")
+        (@arg GID:  -g --gid  +takes_value "Change GROUP's group id. See man page for details")
+        (@arg NAME: -n --name +takes_value "Change GROUP's name")
+    ).get_matches();
     
-    let mut parser = ArgParser::new(9)
-        .add_flag(&["h", "help"])
-        .add_opt("g", "gid")
-        .add_opt("n", "name");
-    parser.parse(env::args());
-    
-    if parser.found("help") {
-        stdout.write_all(MAN_PAGE.as_bytes()).unwrap();
-        stdout.flush().unwrap();
-        exit(0);
-    }
-    
-    let groupname = if parser.args.is_empty() {
-        eprintln!("groupmod: no login specified");
-        exit(1);
-    } else {
-        &parser.args[0]
-    };
+    let groupname = args.value_of("GROUP").unwrap();
     
     let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
     {
-        let group = sys_groups.get_mut_by_name(groupname).unwrap_or_else(|| {
-            eprintln!("groupmod: group does not exist: {}", groupname);
-            exit(1);
-        });
+        let group = sys_groups
+            .get_mut_by_name(groupname)
+            .unwrap_or_else(|| {
+                eprintln!("groupmod: group not found: {}", groupname);
+                exit(1);
+            });
         
         //TODO: Update user's primary GID, if gid is used as such
-        if let Some(gid) = parser.get_opt("gid") {
+        if let Some(gid) = args.value_of("GID") {
             let gid = gid.parse::<usize>().unwrap_or_exit(1);
             group.gid = gid;
-        } else if parser.found("gid") {
-            eprintln!("groupmod: no gid found");
-            exit(1);
         }
         
-        if let Some(name) = parser.get_opt("name") {
-            group.group = name;
-        } else if parser.found("name") {
-            eprintln!("groupmod: no name found");
-            exit(1);
+        if let Some(name) = args.value_of("NAME") {
+            group.group = name.to_string();
         }
     }
     
