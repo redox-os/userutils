@@ -1,21 +1,19 @@
 #![deny(warnings)]
 
-extern crate arg_parser;
+#[macro_use]
+extern crate clap;
 extern crate extra;
 extern crate redox_users;
 extern crate userutils;
 
-use std::env;
-use std::io::{stdout, Write};
 use std::fs::{remove_dir, rename};
 use std::process::exit;
 
-use arg_parser::ArgParser;
 use extra::option::OptionalExt;
 use redox_users::{AllGroups, AllUsers};
 use userutils::create_user_dir;
 
-const MAN_PAGE: &'static str = /* @MANSTART{usermod} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{usermod} */ r#"
 NAME
     usermod - modify user information
 
@@ -76,43 +74,63 @@ AUTHORS
 "#; /* @MANEND */
 
 fn main() {
-    let mut stdout = stdout();
+    let args = clap_app!(usermod =>
+        (author: "Wesley Hershberger")
+        (about: "Modify users according to the system's redox_users backend")
+        (@arg LOGIN:
+            +required
+            "Apply modifications to LOGIN")
+        (@arg COMMENT:
+            -c --comment
+            +takes_value
+            "Set LOGIN's description (GECOS field)")
+        (@arg HOME_DIR:
+            -d --("home-dir")
+            +takes_value
+            "Create and set LOGIN's home directory")
+        (@arg MOVE_HOME:
+            -m --("move-home")
+            requires[HOME_DIR]
+            "Move LOGIN's old home to HOME_DIR (see --home-dir) instead of creating it. Requires -d")
+        (@arg APPEND_GROUPS:
+            -G --("append-groups")
+            +takes_value conflicts_with[SET_GROUPS]
+            "Add user to groups specified (comma separated list, see man page)")
+        (@arg SET_GROUPS:
+            -S --("set-groups")
+            +takes_value conflicts_with[APPEND_GROUPS]
+            "Set LOGIN's groups as specified (truncates existing, see man page)")
+        (@arg GID:
+            -g --gid
+            +takes_value
+            "Set LOGIN's primary group id. Group must exist")
+        (@arg NEW_LOGIN:
+            -l --login
+            +takes_value
+            "Set LOGIN's name to NEW_LOGIN")
+        (@arg SHELL:
+            -s --shell
+            +takes_value
+            "Set LOGIN's default login shell")
+        (@arg UID:
+            -u --uid
+            +takes_value
+            "Set LOGIN's user id. See man page for details")
+    ).get_matches();
     
-    let mut parser = ArgParser::new(9)
-        .add_flag(&["h", "help"])
-        .add_flag(&["m", "move-home"])
-        .add_opt("c", "comment")
-        .add_opt("d", "home-dir")
-        .add_opt("G", "groups")
-        .add_opt("g", "gid")
-        .add_opt("l", "login")
-        .add_opt("s", "shell")
-        .add_opt("u", "uid");
-    parser.parse(env::args());
-    
-    if parser.found("help") {
-        stdout.write_all(MAN_PAGE.as_bytes()).unwrap();
-        stdout.flush().unwrap();
-        exit(0);
-    }
-    
-    let login = if parser.args.is_empty() {
-        eprintln!("usermod: no login specified");
-        exit(1);
-    } else {
-        &parser.args[0]
-    };
+    let login = args.value_of("LOGIN").unwrap();
     
     let mut sys_users = AllUsers::new().unwrap_or_exit(1);
     let mut sys_groups;
     
-    if parser.found("groups") {
+    //Requires iteration over system groups, which requires additions to redox_users
+    if let Some(_new_groups) = args.value_of("SET_GROUPS") {
+        unimplemented!();
+    }
+    
+    if let Some(new_groups) = args.value_of("APPEND_GROUPS") {
         sys_groups = AllGroups::new().unwrap_or_exit(1);
         
-        let new_groups = parser.get_opt("groups").unwrap_or_else(|| {
-            eprintln!("usermod: no groups found");
-            exit(1);
-        });
         let new_groups = new_groups.split(',');
         
         for groupname in new_groups {
@@ -120,27 +138,22 @@ fn main() {
                 eprintln!("usermod: no group found: {}", groupname);
                 exit(1);
             });
-            group.users.push(String::from(login.as_str()));
+            group.users.push(login.to_string());
         }
         
         sys_groups.save().unwrap_or_exit(1);
     }
     
-    // Nasty to satisfy borrow checker. See line ~174 too
-    let uid = if let Some(uid) = parser.get_opt("uid") {
-        let uid = uid.parse::<usize>().unwrap_or_exit(1);
-        if let Some(_user) = sys_users.get_by_id(uid) {
-            eprintln!("usermod: userid already in use: {}", uid);
-            exit(1);
-        } else {
-            Some(uid)
-        }
-    } else if parser.found("uid") {
-        eprintln!("usermod: no uid found");
-        exit(1);
-    } else {
-        None
-    };
+    let uid = args
+        .value_of("UID")
+        .map(|uid| {
+            let uid = uid.parse::<usize>().unwrap_or_exit(1);
+            if let Some(_user) = sys_users.get_by_id(uid) {
+                eprintln!("usermod: userid already in use: {}", uid);
+                exit(1);
+            }
+            uid
+        });
     
     {
         let user = sys_users.get_mut_by_name(&login).unwrap_or_else(|| {
@@ -148,46 +161,33 @@ fn main() {
             exit(1);
         });
         
-        if let Some(gecos) = parser.get_opt("comment") {
-            user.name = gecos;
-        // If we found it but ^that^ was None, problem
-        } else if parser.found("comment") {
-            eprintln!("usermod: no comment found");
-            exit(1);
+        if let Some(gecos) = args.value_of("COMMENT") {
+            user.name = gecos.to_string();
         }
         
-        if let Some(new_login) = parser.get_opt("login") {
-            user.user = new_login;
-        } else if parser.found("login") {
-            eprintln!("usermod: no login found");
-            exit(1);
+        if let Some(new_login) = args.value_of("NEW_LOGIN") {
+            user.user = new_login.to_string();
         }
         
-        if let Some(shell) = parser.get_opt("shell") {
-            user.shell = shell;
-        } else if parser.found("shell") {
-            eprintln!("usermod: no shell found");
-            exit(1);
+        if let Some(shell) = args.value_of("SHELL") {
+            user.shell = shell.to_string();
         }
         
-        if let Some(home) = parser.get_opt("home-dir") {
-            if parser.found("move-home") {
+        if let Some(home) = args.value_of("HOME_DIR") {
+            if args.is_present("MOVE_HOME") {
                 rename(&user.home, &home).unwrap_or_exit(1);
             } else {
                 create_user_dir(user, &home).unwrap_or_exit(1);
                 remove_dir(&user.home).unwrap_or_exit(1);
             }
-            user.home = home;
-        } else if parser.found("home-dir") {
-            eprintln!("usermod: no home dir found");
-            exit(1);
+            user.home = home.to_string();
         }
         
         if let Some(uid) = uid {
             user.uid = uid;
         }
         
-        if let Some(gid) = parser.get_opt("gid") {
+        if let Some(gid) = args.value_of("GID") {
             sys_groups = AllGroups::new().unwrap_or_exit(1);
             let gid = gid.parse::<usize>().unwrap_or_exit(1);
             
@@ -195,10 +195,8 @@ fn main() {
                 user.gid = gid;
             } else {
                 eprintln!("usermod: no group found for id: {}", gid);
+                exit(1);
             }
-        } else if parser.found("gid") {
-            eprintln!("usermod: no gid found");
-            exit(1);
         }
     }
     

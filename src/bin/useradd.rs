@@ -1,21 +1,19 @@
 #![deny(warnings)]
 
-extern crate arg_parser;
+#[macro_use]
+extern crate clap;
 extern crate extra;
 extern crate syscall;
 extern crate redox_users;
 extern crate userutils;
 
-use std::{env, io};
-use std::io::Write;
 use std::process::exit;
 
-use arg_parser::ArgParser;
 use extra::option::OptionalExt;
 use redox_users::{AllGroups, AllUsers};
 use userutils::create_user_dir;
 
-const MAN_PAGE: &'static str = /* @MANSTART{useradd} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{useradd} */ r#"
 NAME
     useradd - add a new user
 
@@ -75,168 +73,139 @@ OPTIONS
 AUTHORS
     Written by Wesley Hershberger.
 "#; /* @MANEND */
-const DEFAULT_SHELL: &'static str = "/bin/ion";
-const DEFAULT_HOME: &'static str = "/home";
+const DEFAULT_SHELL: &'static str = "file:/bin/ion";
+const DEFAULT_HOME: &'static str = "file:/home";
+const DEFAULT_NO_GROUP: &'static str = "nobody";
 
 fn main() {
-    let mut stdout = io::stdout();
+    let args = clap_app!(useradd =>
+        (author: "Wesley Hershberger")
+        (about: "Add users based on the system's redox_users backend")
+        (@arg LOGIN:
+            +required
+            "Add user LOGIN")
+        (@arg COMMENT:
+            -c --comment
+            +takes_value
+            "Set user description (GECOS field)")
+        (@arg HOME_DIR:
+            -d --("home-dir")
+            +takes_value
+            "Set LOGIN's home dir to HOME_DIR (does not create directory)")
+        (@arg CREATE_HOME:
+            -m --("create-home")
+            "Create the user's home directory")
+        (@arg SHELL:
+            -s --shell
+            +takes_value
+            "Set user's default login shell")
+        (@arg GID:
+            -g --gid
+            +takes_value
+            "Set LOGIN's primary group id. Positive integer and must not be in use.")
+        (@arg NO_USER_GROUP:
+            -N --("no-user-group")
+            conflicts_with[GID]
+            "Do not create primary user group (set gid to 99, \"nobody\")")
+        (@arg UID:
+            -u --uid
+            +takes_value
+            "Set LOGIN's user id. Positive ineger and must not be in use.")
+    ).get_matches();
     
-    let mut parser = ArgParser::new(8)
-        .add_flag(&["h", "help"])
-        .add_opt("c", "comment")
-        .add_opt("d", "home-dir")
-        .add_opt("g", "gid")
-        .add_flag(&["m", "create-home"])
-        .add_flag(&["N", "no-user-group"])
-        .add_opt("s", "shell")
-        .add_opt("u", "uid");
-    parser.parse(env::args());
-    
-    if parser.found("help") {
-        stdout.write_all(MAN_PAGE.as_bytes()).unwrap();
-        stdout.flush().unwrap();
-        exit(0);
-    }
-    
-    let login = if parser.args.is_empty() {
-        eprintln!("useradd: no login specified");
-        exit(1);
-    } else {
-        &parser.args[0]
-    };
+    // unwrap is safe because of "+required". clap-rs is cool...
+    let login = args.value_of("LOGIN").unwrap();
     
     let mut sys_users = AllUsers::new().unwrap_or_exit(1);
-    let mut sys_groups;
+    let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
     
-    let uid = if parser.found("uid") {
-        match parser.get_opt("uid") {
-            Some(uid) => {
-                let id = uid.parse::<usize>().unwrap_or_exit(1);
-                if let Some(_user) = sys_users.get_by_id(id) {
-                    eprintln!("useradd: user already exists with uid: {}", id);
+    let uid = match args.value_of("UID") {
+        Some(uid) => {
+            let id = uid.parse::<usize>().unwrap_or_exit(1);
+            if let Some(_user) = sys_users.get_by_id(id) {
+                eprintln!("useradd: userid already in use: {}", id);
+                exit(1);
+            }
+            id
+        },
+        None => sys_users
+                    .get_unique_id()
+                    .unwrap_or_else(|| {
+                        eprintln!("useradd: no available uid");
+                        exit(1);
+                    })
+    };
+    
+    let gid = if args.is_present("NO_USER_GROUP") {
+        let nobody = sys_groups
+            .get_mut_by_name(DEFAULT_NO_GROUP)
+            .unwrap_or_else(|| {
+                eprintln!("useradd: group not found: {}", DEFAULT_NO_GROUP);
+                exit(1)
+            });
+        nobody.users.push(login.to_string());
+        99
+    } else {
+        let id = match args.value_of("GID") {
+            Some(id) => {
+                let id = id.parse::<usize>().unwrap_or_exit(1);
+                if let Some(_group) = sys_groups.get_by_id(id) {
+                    eprintln!("useradd: group already exists with gid: {}", id);
                     exit(1);
                 }
                 id
             },
-            None => {
-                eprintln!("useradd: missing uid value");
+            None => sys_groups
+                        .get_unique_id()
+                        .unwrap_or_else(|| {
+                            eprintln!("useradd: no available gid");
+                            exit(1);
+                        })
+        };
+        sys_groups
+            .add_group(login, id, &[login])
+            .unwrap_or_else(|err| {
+                eprintln!("useradd: {}: {}", err, login);
                 exit(1);
-            }
-        }
-    } else {
-        match sys_users.get_unique_id() {
-            Some(id) => id,
-            None => {
-                eprintln!("useradd: no available uid");
-                exit(1);
-            }
-        }
-    };
-    
-    //This is a ridiculous mess and could use reworking
-    let gid: usize;
-    if parser.found("no-user-group") {
-        sys_groups = AllGroups::new().unwrap_or_exit(1);
-        gid = 99;
-        {
-            let nobody = sys_groups.get_mut_by_name("nobody").unwrap_or_else(|| {
-                eprintln!("useradd: group \"nobody\" not found");
-                exit(1)
             });
-            nobody.users.push(String::from(login.as_str()));
-        }
-        sys_groups.save().unwrap_or_exit(1);
-    } else {
-        sys_groups = AllGroups::new().unwrap_or_exit(1);
-        
-        if parser.found("gid") {
-            gid = match parser.get_opt("gid") {
-                Some(gid) => {
-                    let id = gid.parse::<usize>().unwrap_or_exit(1);
-                    if let Some(_group) = sys_groups.get_by_id(id) {
-                        eprintln!("useradd: group already exists with gid: {}", id);
-                        exit(1);
-                    }
-                    id
-                },
-                None => {
-                    eprintln!("useradd: missing gid argument");
-                    exit(1);
-                }
-            };
-        } else {
-            gid = match sys_groups.get_unique_id() {
-                Some(id) => id,
-                None => {
-                    eprintln!("useradd: no available gid");
-                    exit(1);
-                }
-            };
-        }
-        match sys_groups.add_group(login, gid, &[login]) {
-            Ok(_) => {},
-            Err(err) => {
-                eprintln!("useradd: error creating group {}: {}", login, err);
-                exit(1);
-            }
-        }
-        sys_groups.save().unwrap_or_exit(1);
-    }
-    
-    let username = if parser.found("comment") {
-        match parser.get_opt("comment") {
-            Some(user) => user,
-            None => {
-                eprintln!("useradd: invalid argument: -c");
-                exit(1);
-            }
-        }
-    } else {
-        login.to_owned()
+        id
     };
     
-    let userhome = if parser.found("home-dir") {
-        match parser.get_opt("home-dir") {
-            Some(dir) => dir,
-            None => {
-                eprintln!("useradd: missing directory argument");
-                exit(1);
-            }
-        }
-    } else if parser.found("create-home") {
-        format!("{}/{}", DEFAULT_HOME, login)
-    } else {
-        "/".to_string()
-    };
+    let gecos = args
+        .value_of("COMMENT")
+        .unwrap_or(login);
     
-    let shell = if parser.found("shell") {
-        match parser.get_opt("shell") {
-            Some(sh) => sh,
-            None => {
-                eprintln!("useradd: invalid argument: -s");
-                exit(1);
+    //Ugly way to satisfy the borrow checker...
+    let mut sys_homes = String::from(DEFAULT_HOME);
+    let userhome = args
+        .value_of("HOME_DIR")
+        .unwrap_or_else(|| {
+            if args.is_present("CREATE_HOME") {
+                sys_homes.push_str(&login);
+                sys_homes.as_str()
+            } else {
+                "/"
             }
-        }
-    } else {
-        DEFAULT_SHELL.to_string()
-    };
+        });
     
-    match sys_users.add_user(login, uid, gid, username.as_str(), userhome.as_str(), shell.as_str()) {
-        Ok(_) => {},
-        Err(err) => {
+    let shell = args
+        .value_of("SHELL")
+        .unwrap_or(DEFAULT_SHELL);
+    
+    sys_users
+        .add_user(login, uid, gid, gecos, userhome, shell)
+        .unwrap_or_else(|err| {
             eprintln!("useradd: {}: {}", err, login);
             exit(1);
-        }
-    }
+        });
     
-    println!("Got info: {};{};{};{};{};{}", login, uid, gid, username, userhome, shell);
-    
-    // Make sure to try and create the user before we create
+    // Make sure to try and create the user/groups before we create
     // their home, that way we get a permissions error that makes
     // more sense
+    sys_groups.save().unwrap_or_exit(1);
     sys_users.save().unwrap_or_exit(1);
     
-    if parser.found("create-home") {
+    if args.is_present("CREATE_HOME") {
         //Shouldn't ever error...
         let user = sys_users.get_by_id(uid).unwrap_or_exit(1);
         create_user_dir(user, userhome).unwrap_or_exit(1);

@@ -1,23 +1,22 @@
 #![deny(warnings)]
 
-extern crate arg_parser;
+#[macro_use]
+extern crate clap;
 extern crate extra;
 extern crate termion;
 extern crate redox_users;
 extern crate userutils;
 
-use std::env;
 use std::io::{self, Write};
 use std::process::exit;
 use std::str;
 
-use arg_parser::ArgParser;
 use extra::option::OptionalExt;
 use termion::input::TermRead;
 use redox_users::{get_uid, AllUsers};
 use userutils::spawn_shell;
 
-const MAN_PAGE: &'static str = /* @MANSTART{su} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{su} */ r#"
 NAME
     su - substitute user identity
 
@@ -31,8 +30,7 @@ DESCRIPTION
 
 OPTIONS
 
-    -h
-    --help
+    -h, --help
         Display this help and exit.
 
 AUTHOR
@@ -46,21 +44,15 @@ pub fn main() {
     let mut stdout = stdout.lock();
     let mut stderr = io::stderr();
 
-    let mut parser = ArgParser::new(1)
-        .add_flag(&["h", "help"]);
-    parser.parse(env::args());
+    let args = clap_app!(su =>
+        (author: "Jeremy Soller, Jose Narvaez")
+        (about: "substitue user identity")
+        (@arg LOGIN: "Login as LOGIN. Default is \'root\'")
+    ).get_matches();
 
-    // Shows the help
-    if parser.found("help") {
-        write!(stdout, "{}", MAN_PAGE).unwrap_or_exit(1);
-        exit(0);
-    }
-
-    let target_user = if parser.args.is_empty() {
-        String::from("root")
-    } else {
-        parser.args[0].to_string()
-    };
+    let target_user = args
+        .value_of("LOGIN")
+        .unwrap_or("root");
 
     let uid = get_uid().unwrap_or_exit(1);
     
