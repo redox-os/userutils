@@ -1,6 +1,5 @@
 #![deny(warnings)]
 
-extern crate arg_parser;
 extern crate extra;
 extern crate syscall;
 extern crate termion;
@@ -11,13 +10,12 @@ use std::io::{self, Write};
 use std::os::unix::process::CommandExt;
 use std::process::{Command, exit};
 
-use arg_parser::ArgParser;
 use extra::option::OptionalExt;
 use termion::input::TermRead;
 use redox_users::{get_uid, AllUsers, AllGroups};
 
 const MAX_ATTEMPTS: u16 = 3;
-const MAN_PAGE: &'static str = /* @MANSTART{sudo} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{sudo} */ r#"
 NAME
     sudo - execute a command as another user
 
@@ -28,12 +26,6 @@ SYNOPSIS
 DESCRIPTION
     The sudo utility allows a permitted user to execute a command as the
     superuser or another user, as specified by the security policy.
-
-OPTIONS
-
-    -h
-    --help
-        Display this help and exit.
 
 EXIT STATUS
     Upon successful execution of a command, the exit status from sudo will
@@ -49,17 +41,6 @@ pub fn main() {
     let mut stdin = stdin.lock();
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
-
-    let mut parser = ArgParser::new(1)
-        .add_flag(&["h", "help"]);
-    parser.parse(env::args());
-
-    // Shows the help
-    if parser.found("help") {
-        let _ = stdout.write_all(MAN_PAGE.as_bytes());
-        let _ = stdout.flush();
-        exit(0);
-    }
 
     let mut args = env::args().skip(1);
     let cmd = args.next().unwrap_or_else(|| {
