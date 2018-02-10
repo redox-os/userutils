@@ -50,12 +50,7 @@ path = "src/bin/userdel.rs"
 name = "usermod"
 path = "src/bin/usermod.rs"
 
-[[bin]]
-name = "whoami"
-path = "src/bin/whoami.rs"
-
 [dependencies]
-arg_parser = { git = "https://github.com/redox-os/arg-parser.git" }
 clap = "~2.29.4"
 extra = { git = "https://github.com/redox-os/libextra.git" }
 liner = "0.1"

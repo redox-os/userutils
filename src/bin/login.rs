@@ -1,6 +1,7 @@
 #![deny(warnings)]
 
-extern crate arg_parser;
+#[macro_use]
+extern crate clap;
 extern crate extra;
 extern crate liner;
 extern crate termion;
@@ -9,17 +10,14 @@ extern crate userutils;
 
 use std::fs::File;
 use std::io::{self, Write};
-use std::process::exit;
-use std::env;
 use std::str;
 
 use extra::option::OptionalExt;
-use arg_parser::ArgParser;
 use termion::input::TermRead;
 use redox_users::{AllUsers};
 use userutils::spawn_shell;
 
-const MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
 NAME
     login - log into the computer
 
@@ -31,9 +29,8 @@ DESCRIPTION
 
 OPTIONS
 
-    -h
-    --help
-        Display this help and exit.
+    -h --help
+        Display help info and exit.
 
 AUTHOR
     Written by Jeremy Soller, Jose Narvaez.
@@ -46,16 +43,10 @@ pub fn main() {
     let mut stdout = io::stdout();
     let mut stderr = io::stderr();
 
-    let mut parser = ArgParser::new(1)
-        .add_flag(&["h", "help"]);
-    parser.parse(env::args());
-
-    // Shows the help
-    if parser.found("help") {
-        stdout.write_all(MAN_PAGE.as_bytes()).try(&mut stderr);
-        stdout.flush().try(&mut stderr);
-        exit(0);
-    }
+    let _args = clap_app!(login =>
+        (author: "Jeremy Soller, Jose Narvaez")
+        (about: "Login as a user")
+    ).get_matches();
 
     if let Ok(mut issue) = File::open(ISSUE_FILE) {
         io::copy(&mut issue, &mut stdout).try(&mut stderr);

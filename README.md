@@ -17,5 +17,8 @@ inspiration by BSD systems. They are indeed small, by choice.
 - `su`: Allows users to substitute identity.
 - `sudo`: Enables users to execute a command as another user.
 - `useradd`: Add a user
+- `usermod`: Modify user information
+- `userdel`: Delete a user
 - `groupadd`: Add a user group
-- `whoami`: Display effective user ID.
+- `groupmod`: Modify group information
+- `groupdel`: Remove a user group

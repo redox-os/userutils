@@ -5,6 +5,7 @@ extern crate clap;
 extern crate extra;
 extern crate redox_users;
 
+use std::env::args;
 use std::process::exit;
 
 use extra::option::OptionalExt;
@@ -53,7 +54,7 @@ AUTHOR
 "#; /* @MANEND */
 
 pub fn main() {
-    let args = clap_app!(id =>
+    let app = clap_app!(id =>
         (author: "Jose Narvaez")
         (about: "Get user and group information about the current user")
         (@arg IGNORE: -a "Ignored for compatibility with other impls of id")
@@ -66,7 +67,12 @@ pub fn main() {
             (@arg NAME: -n --name requires[selector] "Display names of groups/users instead of ids (use with -g or -u)")
             (@arg REAL: -r --real requires[selector] "Display real id's instead of effective ids (use with -g and -u)")
         )
-    ).get_matches();
+    );
+    
+    let args = match &*args().nth(0).unwrap_or(String::new()) {
+        "whoami" => app.get_matches_from(["id", "-un"].iter()),
+        _ => app.get_matches()
+    };
 
     // Display the different group IDs (effective and real)
     // as white-space separated numbers, in no particular order.
@@ -78,19 +84,10 @@ pub fn main() {
         println!("{} {}", egid, gid);
         exit(0);
    }
-   
-   /*
-   // Check if people passed both -g -u which are mutually exclusive
-   if parser.found(&'u') && parser.found(&'g') {
-        let msg = "id: specify either -u or -g but not both\n";
-        print_msg(msg, &mut stdout, &mut stderr);
-        print_msg(HELP_INFO, &mut stdout, &mut stderr);
-        exit(1);
-   }*/
 
    // Display effective/real process user ID UNIX user name
    if args.is_present("USER") && args.is_present("NAME") {
-        // Did they pass -r? F so, we show the real
+        // Did they pass -r? If so, we show the real
         let uid = if args.is_present("REAL") {
             get_uid()
         } else {
