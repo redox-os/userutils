@@ -47,7 +47,7 @@ fn main() {
         (about: "Add groups based on the system's redox_users backend")
         (@arg GROUP: +required  "Add group GROUP")
         (@arg FORCE: -f --force "Force the status of the program to be 0 even if the group exists")
-        (@arg GID:   -g --gid   "Group id. Positive integer and must not be in use")
+        (@arg GID:   -g --gid   +takes_value "Group id. Positive integer and must not be in use")
     ).get_matches();
     
     let mut sys_groups = AllGroups::new().unwrap_or_exit(1);

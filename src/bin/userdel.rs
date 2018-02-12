@@ -4,12 +4,14 @@
 extern crate clap;
 extern crate extra;
 extern crate redox_users;
+extern crate userutils;
 
 use std::fs::remove_dir;
 use std::process::exit;
 
 use extra::option::OptionalExt;
-use redox_users::AllUsers;
+use redox_users::{AllGroups, AllUsers};
+use userutils::AllGroupsExt;
 
 const _MAN_PAGE: &'static str =  /* @MANSTART{userdel} */ r#"
 NAME
@@ -21,12 +23,10 @@ SYNOPSYS
 
 DESCRIPTION
     userdel removes users from whatever backend is employed by
-    the system's redox_users.
+    the system's redox_users. The utility removes the user from
+    all groups of which they are a member.
     
     It can also be used to manage removal of home directories.
-    
-    This utility does not remove the user from any groups! This is
-    a planned feature and will be implemented at some point.
 
 OPTIONS
     -h, --help
@@ -51,18 +51,21 @@ fn main() {
     let login = args.value_of("LOGIN").unwrap();
     
     let mut sys_users = AllUsers::new().unwrap_or_exit(1);
+    let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
     {
-        let user = sys_users.get_by_name(login).unwrap_or_else(|| {
-            eprintln!("userdel: user does not exist: {}", login);
-            exit(1);
-        });
+        sys_groups.remove_user_from_all_groups(login);
         
         if args.is_present("REMOVE") {
+            let user = sys_users.get_by_name(login).unwrap_or_else(|| {
+                eprintln!("userdel: user does not exist: {}", login);
+                exit(1);
+            });
             remove_dir(&user.home).unwrap_or_exit(1);
         }
     }
     
     sys_users.remove_by_name(login.to_string()).unwrap_or_exit(1);
     
+    sys_groups.save().unwrap_or_exit(1);
     sys_users.save().unwrap_or_exit(1);
 }

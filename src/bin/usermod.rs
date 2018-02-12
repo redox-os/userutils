@@ -11,7 +11,7 @@ use std::process::exit;
 
 use extra::option::OptionalExt;
 use redox_users::{AllGroups, AllUsers};
-use userutils::create_user_dir;
+use userutils::{create_user_dir, AllGroupsExt};
 
 const _MAN_PAGE: &'static str = /* @MANSTART{usermod} */ r#"
 NAME
@@ -123,24 +123,16 @@ fn main() {
     let mut sys_users = AllUsers::new().unwrap_or_exit(1);
     let mut sys_groups;
     
-    //Requires iteration over system groups, which requires additions to redox_users
-    if let Some(_new_groups) = args.value_of("SET_GROUPS") {
-        unimplemented!();
+    if let Some(new_groups) = args.value_of("SET_GROUPS") {
+        sys_groups = AllGroups::new().unwrap_or_exit(1);
+        sys_groups.remove_user_from_all_groups(login);
+        sys_groups.add_user_to_groups(login, new_groups.split(',').collect()).unwrap_or_exit(1);
+        sys_groups.save().unwrap_or_exit(1);
     }
     
     if let Some(new_groups) = args.value_of("APPEND_GROUPS") {
         sys_groups = AllGroups::new().unwrap_or_exit(1);
-        
-        let new_groups = new_groups.split(',');
-        
-        for groupname in new_groups {
-            let group = sys_groups.get_mut_by_name(groupname).unwrap_or_else(|| {
-                eprintln!("usermod: no group found: {}", groupname);
-                exit(1);
-            });
-            group.users.push(login.to_string());
-        }
-        
+        sys_groups.add_user_to_groups(login, new_groups.split(',').collect()).unwrap_or_exit(1);
         sys_groups.save().unwrap_or_exit(1);
     }
     
