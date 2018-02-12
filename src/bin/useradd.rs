@@ -181,6 +181,7 @@ fn main() {
         .value_of("HOME_DIR")
         .unwrap_or_else(|| {
             if args.is_present("CREATE_HOME") {
+                sys_homes.push_str("/");
                 sys_homes.push_str(&login);
                 sys_homes.as_str()
             } else {

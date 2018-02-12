@@ -19,14 +19,46 @@
 extern crate redox_users;
 extern crate syscall;
 
-use std::io::Result;
+use std::io::Result as IoResult;
 
-use redox_users::User;
+use redox_users::{AllGroups, Result, User, UsersError};
 use syscall::call::{open, fchmod, fchown};
 use syscall::error::Result as SysResult;
 use syscall::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
 
 const DEFAULT_MODE: u16 = 0o700;
+
+// Not the prettiest thing in the world, but some functionality here makes
+// some of the utils much less gross
+pub trait AllGroupsExt {
+    fn add_user_to_groups(&mut self, login: &str, groups: Vec<&str>) -> Result<()>;
+    fn remove_user_from_all_groups(&mut self, login: &str);
+}
+
+impl AllGroupsExt for AllGroups {
+    // new_groups is a comma separated list of groupnames
+    fn add_user_to_groups(&mut self, login: &str, new_groups: Vec<&str>) -> Result<()> {
+        for groupname in new_groups {
+            let group = match self.get_mut_by_name(groupname) {
+                Some(group) => group,
+                None => return Err(UsersError::NotFound.into())
+            };
+            group.users.push(login.to_string());
+        }
+        Ok(())
+    }
+    
+    /// Remove a user from all groups of which they are a member
+    fn remove_user_from_all_groups(&mut self, login: &str) {
+        for group in self.iter_mut() {
+            let op_pos = group.users.iter()
+                .position(|username| username == login );
+            if let Some(indx) = op_pos {
+                group.users.remove(indx);
+            }
+        }
+    }
+}
 
 /// Spawns a shell for the given `User`.
 ///
@@ -43,7 +75,7 @@ const DEFAULT_MODE: u16 = 0o700;
 /// let user = sys_users.get_by_name("goyox86");
 /// spawn_shell(user).unwrap();
 /// ```
-pub fn spawn_shell(user: &User) -> Result<i32> {
+pub fn spawn_shell(user: &User) -> IoResult<i32> {
     let mut command = user.shell_cmd();
 
     let mut child = command.spawn()?;
@@ -53,7 +85,7 @@ pub fn spawn_shell(user: &User) -> Result<i32> {
     }
 }
 
-
+/// Creates a directory with 700 user:user permissions
 pub fn create_user_dir<T>(user: &User, dir: T) -> SysResult<()>
     where T: AsRef<str> + std::convert::AsRef<[u8]>
 {

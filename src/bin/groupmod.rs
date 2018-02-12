@@ -8,7 +8,7 @@ extern crate redox_users;
 use std::process::exit;
 
 use extra::option::OptionalExt;
-use redox_users::AllGroups;
+use redox_users::{AllGroups, AllUsers};
 
 const _MAN_PAGE: &'static str =  /* @MANSTART{groupmod} */ r#"
 NAME
@@ -33,7 +33,7 @@ OPTIONS
         Files with GROUP's old gid will not be updated.
         
         User's who use the old gid as their primary gid will
-        also not be updated. This is a TODO and will change.
+        be updated.
     
     -n, --name NAME
         The name of the group will be set to NAME
@@ -62,9 +62,16 @@ fn main() {
                 exit(1);
             });
         
-        //TODO: Update user's primary GID, if gid is used as such
         if let Some(gid) = args.value_of("GID") {
             let gid = gid.parse::<usize>().unwrap_or_exit(1);
+            // Update users
+            let mut sys_users = AllUsers::new().unwrap_or_exit(1);
+            for user in sys_users.iter_mut() {
+                if user.gid == group.gid {
+                    user.gid = gid;
+                }
+            }
+            sys_users.save().unwrap_or_exit(1);
             group.gid = gid;
         }
         
