@@ -71,16 +71,6 @@ pub fn main() {
                     continue;
                 },
                 Some(user) => {
-                    if user.is_passwd_blank() {
-                        if let Ok(mut motd) = File::open(MOTD_FILE) {
-                            io::copy(&mut motd, &mut stdout).try(&mut stderr);
-                            stdout.flush().try(&mut stderr);
-                        }
-
-                        spawn_shell(user).unwrap_or_exit(1);
-                        break;
-                    }
-
                     stdout.write_all(b"\x1B[1mpassword:\x1B[0m ").try(&mut stderr);
                     stdout.flush().try(&mut stderr);
                     if let Some(password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
