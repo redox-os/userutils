@@ -42,25 +42,17 @@ const DEFAULT_COLS: u32 = 80;
 const DEFAULT_LINES: u32 = 30;
 
 pub fn handle(event_file: &mut File, tty_fd: RawFd, master_fd: RawFd, process: &mut Child) {
-    let handle_event = |event_id: usize, event_count: usize| -> bool {
+    let handle_event = |event_id: usize| {
         if event_id == tty_fd {
             let mut packet = [0; 4096];
             let count = syscall::read(tty_fd, &mut packet).expect("getty: failed to read from TTY");
-            if count == 0 {
-                if event_count == 0 {
-                    return false;
-                }
-            } else {
+            if count != 0 {
                 syscall::write(master_fd, &packet[..count]).expect("getty: failed to write master PTY");
             }
         } else if event_id == master_fd {
             let mut packet = [0; 4096];
             let count = syscall::read(master_fd, &mut packet).expect("getty: failed to read master PTY");
-            if count == 0 {
-                if event_count == 0 {
-                    return false;
-                }
-            } else {
+            if count != 0 {
                 syscall::write(tty_fd, &packet[1..count]).expect("getty: failed to write to TTY");
                 if packet[0] & 1 == 1 {
                     let _ = syscall::fsync(tty_fd);
@@ -69,19 +61,15 @@ pub fn handle(event_file: &mut File, tty_fd: RawFd, master_fd: RawFd, process: &
         } else {
             println!("Unknown event {}", event_id);
         }
-
-        true
     };
 
-    handle_event(tty_fd, 0);
-    handle_event(master_fd, 0);
+    handle_event(tty_fd);
+    handle_event(master_fd);
 
     'events: loop {
         let mut sys_event = syscall::Event::default();
         event_file.read(&mut sys_event).expect("getty: failed to read event file");
-        if ! handle_event(sys_event.id, sys_event.data) {
-            break 'events;
-        }
+        handle_event(sys_event.id);
 
         match process.try_wait() {
             Ok(status) => match status {
@@ -135,6 +123,9 @@ fn daemon(tty_fd: RawFd, clear: bool, stderr: &mut Stderr) {
 
     let (master_fd, pty) = getpty(columns, lines);
 
+    println!("tty_fd: {}", tty_fd);
+    println!("master_fd: {}", master_fd);
+
     let mut event_file = OpenOptions::new()
         .read(true)
         .write(true)
@@ -177,10 +168,6 @@ fn daemon(tty_fd: RawFd, clear: bool, stderr: &mut Stderr) {
 
         match command.spawn() {
             Ok(mut process) => {
-                let _ = syscall::close(slave_stderr);
-                let _ = syscall::close(slave_stdout);
-                let _ = syscall::close(slave_stdin);
-
                 handle(&mut event_file, tty_fd, master_fd, &mut process);
             },
             Err(err) => {
