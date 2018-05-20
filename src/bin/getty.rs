@@ -7,8 +7,8 @@ extern crate syscall;
 extern crate extra;
 
 use std::str;
-use std::fs::File;
-use std::io::{self, ErrorKind, Read, Stderr};
+use std::fs::{File, OpenOptions};
+use std::io::{self, ErrorKind, Read, Write, Stderr};
 use std::os::unix::io::{FromRawFd, RawFd};
 use std::process::{Child, Command, Stdio};
 
@@ -135,10 +135,23 @@ fn daemon(tty_fd: RawFd, clear: bool, stderr: &mut Stderr) {
 
     let (master_fd, pty) = getpty(columns, lines);
 
-    let mut event_file = File::open("event:").expect("getty: failed to open event file");
+    let mut event_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open("event:")
+        .expect("getty: failed to open event file");
 
-    syscall::fevent(tty_fd, syscall::flag::EVENT_READ).expect("getty: failed to fevent TTY");
-    syscall::fevent(master_fd, syscall::flag::EVENT_READ).expect("getty: failed to fevent master PTY");
+    event_file.write(&syscall::Event {
+        id: tty_fd,
+        flags: syscall::flag::EVENT_READ,
+        data: 0
+    }).expect("getty: failed to fevent TTY");
+
+    event_file.write(&syscall::Event {
+        id: master_fd,
+        flags: syscall::flag::EVENT_READ,
+        data: 0
+    }).expect("getty: failed to fevent master PTY");
 
     loop {
         if clear {
