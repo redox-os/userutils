@@ -123,9 +123,6 @@ fn daemon(tty_fd: RawFd, clear: bool, stderr: &mut Stderr) {
 
     let (master_fd, pty) = getpty(columns, lines);
 
-    println!("tty_fd: {}", tty_fd);
-    println!("master_fd: {}", master_fd);
-
     let mut event_file = OpenOptions::new()
         .read(true)
         .write(true)
