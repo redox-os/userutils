@@ -45,14 +45,24 @@ pub fn handle(event_file: &mut File, tty_fd: RawFd, master_fd: RawFd, process: &
     let handle_event = |event_id: usize| {
         if event_id == tty_fd {
             let mut packet = [0; 4096];
-            let count = syscall::read(tty_fd, &mut packet).expect("getty: failed to read from TTY");
-            if count != 0 {
+            loop {
+                let count = match syscall::read(tty_fd, &mut packet) {
+                    Ok(0) => break,
+                    Ok(count) => count,
+                    Err(ref err) if err.errno == syscall::EAGAIN => break,
+                    Err(_) => panic!("getty: failed to read from TTY")
+                };
                 syscall::write(master_fd, &packet[..count]).expect("getty: failed to write master PTY");
             }
         } else if event_id == master_fd {
             let mut packet = [0; 4096];
-            let count = syscall::read(master_fd, &mut packet).expect("getty: failed to read master PTY");
-            if count != 0 {
+            loop {
+                let count = match syscall::read(master_fd, &mut packet) {
+                    Ok(0) => break,
+                    Ok(count) => count,
+                    Err(ref err) if err.errno == syscall::EAGAIN => break,
+                    Err(_) => panic!("getty: failed to read from master TTY")
+                };
                 syscall::write(tty_fd, &packet[1..count]).expect("getty: failed to write to TTY");
                 if packet[0] & 1 == 1 {
                     let _ = syscall::fsync(tty_fd);
