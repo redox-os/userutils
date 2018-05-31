@@ -47,7 +47,7 @@ pub fn handle(event_file: &mut File, tty_fd: RawFd, master_fd: RawFd, process: &
             let mut packet = [0; 4096];
             loop {
                 let count = match syscall::read(tty_fd, &mut packet) {
-                    Ok(0) => break,
+                    Ok(0) => return,
                     Ok(count) => count,
                     Err(ref err) if err.errno == syscall::EAGAIN => break,
                     Err(_) => panic!("getty: failed to read from TTY")
@@ -58,7 +58,7 @@ pub fn handle(event_file: &mut File, tty_fd: RawFd, master_fd: RawFd, process: &
             let mut packet = [0; 4096];
             loop {
                 let count = match syscall::read(master_fd, &mut packet) {
-                    Ok(0) => break,
+                    Ok(0) => return,
                     Ok(count) => count,
                     Err(ref err) if err.errno == syscall::EAGAIN => break,
                     Err(_) => panic!("getty: failed to read from master TTY")
