@@ -61,7 +61,7 @@ pub fn main() {
         if !user.is_empty() {
             let stdin = io::stdin();
             let mut stdin = stdin.lock();
-            let sys_users = AllUsers::new().unwrap_or_exit(1);
+            let sys_users = AllUsers::new(true).unwrap_or_exit(1);
 
             match sys_users.get_by_name(user) {
                 None => {

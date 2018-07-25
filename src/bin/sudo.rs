@@ -48,7 +48,7 @@ pub fn main() {
         exit(1);
     });
     
-    let users = AllUsers::new().unwrap_or_exit(1);
+    let users = AllUsers::new(true).unwrap_or_exit(1);
     let groups = AllGroups::new().unwrap_or_exit(1);
     
     let uid = get_uid().unwrap_or_exit(1);

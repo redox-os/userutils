@@ -120,7 +120,8 @@ fn main() {
     
     let login = args.value_of("LOGIN").unwrap();
     
-    let mut sys_users = AllUsers::new().unwrap_or_exit(1);
+    //TODO: Does not always need shadowfile access
+    let mut sys_users = AllUsers::new(true).unwrap_or_exit(1);
     let mut sys_groups;
     
     if let Some(new_groups) = args.value_of("SET_GROUPS") {

@@ -50,7 +50,7 @@ fn main() {
     
     let login = args.value_of("LOGIN").unwrap();
     
-    let mut sys_users = AllUsers::new().unwrap_or_exit(1);
+    let mut sys_users = AllUsers::new(true).unwrap_or_exit(1);
     let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
     {
         sys_groups.remove_user_from_all_groups(login);

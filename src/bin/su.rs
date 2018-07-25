@@ -56,7 +56,7 @@ pub fn main() {
 
     let uid = get_uid().unwrap_or_exit(1);
     
-    let users = AllUsers::new().unwrap_or_exit(1);
+    let users = AllUsers::new(true).unwrap_or_exit(1);
     let user = users.get_by_name(&target_user).unwrap_or_exit(1);
 
     // If the user executing su is root, then they can do anything without a password.
