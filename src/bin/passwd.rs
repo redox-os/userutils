@@ -57,7 +57,7 @@ fn main() {
     ).get_matches();
 
     let uid = get_uid().unwrap_or_exit(1);
-    let mut users = AllUsers::new().unwrap_or_exit(1);
+    let mut users = AllUsers::new(true).unwrap_or_exit(1);
     
     {
         let user = match args.value_of("LOGIN") {

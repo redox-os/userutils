@@ -116,7 +116,7 @@ fn main() {
     // unwrap is safe because of "+required". clap-rs is cool...
     let login = args.value_of("LOGIN").unwrap();
     
-    let mut sys_users = AllUsers::new().unwrap_or_exit(1);
+    let mut sys_users = AllUsers::new(true).unwrap_or_exit(1);
     let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
     
     let uid = match args.value_of("UID") {
