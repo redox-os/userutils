@@ -98,9 +98,6 @@ pub fn handle(event_file: &mut File, tty_fd: RawFd, master_fd: RawFd, process: &
 }
 
 pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
-    use redox_termios;
-    use syscall;
-
     let master = syscall::open("pty:", syscall::O_CLOEXEC | syscall::O_RDWR | syscall::O_CREAT | syscall::O_NONBLOCK).expect("getty: failed to create PTY");
 
     if let Ok(winsize_fd) = syscall::dup(master, b"winsize") {
