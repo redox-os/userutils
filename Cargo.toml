@@ -58,3 +58,6 @@ redox_syscall = "0.1"
 redox_termios = "0.1"
 redox_users = "0.2"
 termion = "1.5.1"
+
+[profile.release]
+lto = true
