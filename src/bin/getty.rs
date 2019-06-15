@@ -43,29 +43,29 @@ const DEFAULT_LINES: u32 = 30;
 
 pub fn handle(event_file: &mut File, tty_fd: RawFd, master_fd: RawFd, process: &mut Child) {
     let handle_event = |event_id: usize| {
-        if event_id == tty_fd {
+        if event_id as RawFd == tty_fd {
             let mut packet = [0; 4096];
             loop {
-                let count = match syscall::read(tty_fd, &mut packet) {
+                let count = match syscall::read(tty_fd as usize, &mut packet) {
                     Ok(0) => return,
                     Ok(count) => count,
                     Err(ref err) if err.errno == syscall::EAGAIN => break,
                     Err(_) => panic!("getty: failed to read from TTY")
                 };
-                syscall::write(master_fd, &packet[..count]).expect("getty: failed to write master PTY");
+                syscall::write(master_fd as usize, &packet[..count]).expect("getty: failed to write master PTY");
             }
-        } else if event_id == master_fd {
+        } else if event_id as RawFd == master_fd {
             let mut packet = [0; 4096];
             loop {
-                let count = match syscall::read(master_fd, &mut packet) {
+                let count = match syscall::read(master_fd as usize, &mut packet) {
                     Ok(0) => return,
                     Ok(count) => count,
                     Err(ref err) if err.errno == syscall::EAGAIN => break,
                     Err(_) => panic!("getty: failed to read from master TTY")
                 };
-                syscall::write(tty_fd, &packet[1..count]).expect("getty: failed to write to TTY");
+                syscall::write(tty_fd as usize, &packet[1..count]).expect("getty: failed to write to TTY");
                 if packet[0] & 1 == 1 {
-                    let _ = syscall::fsync(tty_fd);
+                    let _ = syscall::fsync(tty_fd as usize);
                 }
             }
         } else {
@@ -73,8 +73,8 @@ pub fn handle(event_file: &mut File, tty_fd: RawFd, master_fd: RawFd, process: &
         }
     };
 
-    handle_event(tty_fd);
-    handle_event(master_fd);
+    handle_event(tty_fd as usize);
+    handle_event(master_fd as usize);
 
     'events: loop {
         let mut sys_event = syscall::Event::default();
@@ -110,13 +110,13 @@ pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
 
     let mut buf: [u8; 4096] = [0; 4096];
     let count = syscall::fpath(master, &mut buf).unwrap();
-    (master, unsafe { String::from_utf8_unchecked(Vec::from(&buf[..count])) })
+    (master as RawFd, unsafe { String::from_utf8_unchecked(Vec::from(&buf[..count])) })
 }
 
 fn daemon(tty_fd: RawFd, clear: bool, stderr: &mut Stderr) {
     let (columns, lines) = {
         let mut path = [0; 4096];
-        if let Ok(count) = syscall::fpath(tty_fd, &mut path) {
+        if let Ok(count) = syscall::fpath(tty_fd as usize, &mut path) {
             let path_str = str::from_utf8(&path[..count]).unwrap_or("");
             let reference = path_str.split(':').nth(1).unwrap_or("");
             let mut parts = reference.split('/').skip(1);
@@ -137,22 +137,22 @@ fn daemon(tty_fd: RawFd, clear: bool, stderr: &mut Stderr) {
         .expect("getty: failed to open event file");
 
     event_file.write(&syscall::Event {
-        id: tty_fd,
+        id: tty_fd as usize,
         flags: syscall::flag::EVENT_READ,
         data: 0
     }).expect("getty: failed to fevent TTY");
 
     event_file.write(&syscall::Event {
-        id: master_fd,
+        id: master_fd as usize,
         flags: syscall::flag::EVENT_READ,
         data: 0
     }).expect("getty: failed to fevent master PTY");
 
     loop {
         if clear {
-            let _ = syscall::write(tty_fd, b"\x1Bc");
+            let _ = syscall::write(tty_fd as usize, b"\x1Bc");
         }
-        let _ = syscall::fsync(tty_fd);
+        let _ = syscall::fsync(tty_fd as usize);
 
         let slave_stdin = syscall::open(&pty, syscall::O_CLOEXEC | syscall::O_RDONLY).expect("getty: failed to open slave stdin");
         let slave_stdout = syscall::open(&pty, syscall::O_CLOEXEC | syscall::O_WRONLY).expect("getty: failed to open slave stdout");
@@ -161,9 +161,9 @@ fn daemon(tty_fd: RawFd, clear: bool, stderr: &mut Stderr) {
         let mut command = Command::new("login");
         unsafe {
             command
-            .stdin(Stdio::from_raw_fd(slave_stdin))
-            .stdout(Stdio::from_raw_fd(slave_stdout))
-            .stderr(Stdio::from_raw_fd(slave_stderr))
+            .stdin(Stdio::from_raw_fd(slave_stdin as RawFd))
+            .stdout(Stdio::from_raw_fd(slave_stdout as RawFd))
+            .stderr(Stdio::from_raw_fd(slave_stderr as RawFd))
             .env("COLUMNS", format!("{}", columns))
             .env("LINES", format!("{}", lines))
             .env("TERM", "xterm-256color")
@@ -200,7 +200,7 @@ pub fn main() {
     };
 
     match unsafe { syscall::clone(0) } {
-        Ok(0) => daemon(tty_fd, clear, &mut stderr),
+        Ok(0) => daemon(tty_fd as RawFd, clear, &mut stderr),
         Ok(_) => (),
         Err(err) => fail(&format!("getty: failed to fork login: {}", err), &mut stderr)
     }
