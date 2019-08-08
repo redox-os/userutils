@@ -9,7 +9,7 @@ use std::env::args;
 use std::process::exit;
 
 use extra::option::OptionalExt;
-use redox_users::{get_egid, get_gid, get_euid, get_uid, AllUsers, AllGroups};
+use redox_users::{get_egid, get_gid, get_euid, get_uid, All, AllUsers, AllGroups, Config};
 
 const _MAN_PAGE: &'static str = /* @MANSTART{id} */ r#"
 NAME
@@ -68,7 +68,7 @@ pub fn main() {
             (@arg REAL: -r --real requires[selector] "Display real id's instead of effective ids (use with -g and -u)")
         )
     );
-    
+
     let args = match &*args().nth(0).unwrap_or(String::new()) {
         "whoami" => app.get_matches_from(["id", "-un"].iter()),
         _ => app.get_matches()
@@ -93,8 +93,8 @@ pub fn main() {
         } else {
             get_euid()
         }.unwrap_or_exit(1);
-        
-        let users = AllUsers::new(false).unwrap_or_exit(1);
+
+        let users = AllUsers::new(Config::default()).unwrap_or_exit(1);
         let user = users.get_by_id(uid).unwrap_or_exit(1);
 
         println!("{}", user.user);
@@ -125,8 +125,8 @@ pub fn main() {
         } else {
             get_egid()
         }.unwrap_or_exit(1);
-        
-        let groups = AllGroups::new().unwrap_or_exit(1);
+
+        let groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
         let group = groups.get_by_id(gid).unwrap_or_exit(1);
 
         println!("{}", group.group);
@@ -152,10 +152,10 @@ pub fn main() {
     // We get everything we can and show
     let euid = get_euid().unwrap_or_exit(1);
     let egid = get_egid().unwrap_or_exit(1);
-    
-    let users = AllUsers::new(false).unwrap_or_exit(1);
-    let groups = AllGroups::new().unwrap_or_exit(1);
-    
+
+    let users = AllUsers::new(Config::default()).unwrap_or_exit(1);
+    let groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+
     let user = users.get_by_id(euid).unwrap_or_exit(1);
     let group = groups.get_by_id(egid).unwrap_or_exit(1);
 

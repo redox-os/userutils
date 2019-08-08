@@ -13,7 +13,7 @@ use std::str;
 
 use extra::option::OptionalExt;
 use termion::input::TermRead;
-use redox_users::{get_uid, AllUsers};
+use redox_users::{get_uid, All, AllUsers, Config};
 use userutils::spawn_shell;
 
 const _MAN_PAGE: &'static str = /* @MANSTART{su} */ r#"
@@ -55,8 +55,8 @@ pub fn main() {
         .unwrap_or("root");
 
     let uid = get_uid().unwrap_or_exit(1);
-    
-    let users = AllUsers::new(true).unwrap_or_exit(1);
+
+    let users = AllUsers::new(Config::with_auth()).unwrap_or_exit(1);
     let user = users.get_by_name(&target_user).unwrap_or_exit(1);
 
     // If the user executing su is root, then they can do anything without a password.

@@ -6,7 +6,7 @@ extern crate extra;
 extern crate redox_users;
 
 use extra::option::OptionalExt;
-use redox_users::AllGroups;
+use redox_users::{All, AllGroups, Config};
 
 const _MAN_PAGE: &'static str =  /* @MANSTART{groupdel} */ r#"
 NAME
@@ -38,12 +38,12 @@ fn main() {
         (about: "Removes a group from the system using redox_users")
         (@arg GROUP: +required "Removes group GROUP")
     ).get_matches();
-    
+
     let group = matches.value_of("GROUP").unwrap();
-    
-    let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
-    
-    sys_groups.remove_by_name(group.to_string()).unwrap_or_exit(1);
-    
+
+    let mut sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+
+    sys_groups.remove_by_name(group.to_string());
+
     sys_groups.save().unwrap_or_exit(1);
 }

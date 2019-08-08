@@ -51,13 +51,13 @@ name = "usermod"
 path = "src/bin/usermod.rs"
 
 [dependencies]
-clap = "~2.29.4"
+clap = "2.33.0"
 extra = { git = "https://gitlab.redox-os.org/redox-os/libextra.git" }
-liner = "0.1"
-redox_syscall = "0.1"
-redox_termios = "0.1"
-redox_users = "0.2"
-termion = "1.5.1"
+liner = "0.4.4"
+redox_syscall = "0.1.56"
+redox_termios = "0.1.1"
+redox_users = "0.3.1"
+termion = "1.5.3"
 
 [profile.release]
 lto = true

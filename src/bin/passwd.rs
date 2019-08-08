@@ -12,7 +12,7 @@ use std::process::exit;
 
 use extra::option::OptionalExt;
 use termion::input::TermRead;
-use redox_users::{get_uid, AllUsers};
+use redox_users::{get_uid, All, AllUsers, Config};
 
 const _MAN_PAGE: &'static str = /* @MANSTART{passwd} */ r#"
 NAME
@@ -35,7 +35,7 @@ OPTIONS
     -l, --lock
         Lock the password of the named account. This changes the stored password
         hash so that it matches no encrypted value ("!")
-        
+
         Users with locked passwords are not allowed to change their password.
 
 AUTHOR
@@ -57,8 +57,8 @@ fn main() {
     ).get_matches();
 
     let uid = get_uid().unwrap_or_exit(1);
-    let mut users = AllUsers::new(true).unwrap_or_exit(1);
-    
+    let mut users = AllUsers::new(Config::with_auth()).unwrap_or_exit(1);
+
     {
         let user = match args.value_of("LOGIN") {
             Some(login) => users.get_mut_by_name(login).unwrap_or_else(|| {
@@ -70,7 +70,7 @@ fn main() {
                         exit(1);
                     })
         };
-        
+
         if args.is_present("LOCK") {
             user.unset_passwd();
         } else if user.uid == uid || uid == 0 {

@@ -10,7 +10,7 @@ use std::fs::{remove_dir, rename};
 use std::process::exit;
 
 use extra::option::OptionalExt;
-use redox_users::{AllGroups, AllUsers};
+use redox_users::{All, AllGroups, AllUsers, Config};
 use userutils::{create_user_dir, AllGroupsExt};
 
 const _MAN_PAGE: &'static str = /* @MANSTART{usermod} */ r#"
@@ -117,26 +117,26 @@ fn main() {
             +takes_value
             "Set LOGIN's user id. See man page for details")
     ).get_matches();
-    
+
     let login = args.value_of("LOGIN").unwrap();
-    
+
     //TODO: Does not always need shadowfile access
-    let mut sys_users = AllUsers::new(true).unwrap_or_exit(1);
+    let mut sys_users = AllUsers::new(Config::with_auth()).unwrap_or_exit(1);
     let mut sys_groups;
-    
+
     if let Some(new_groups) = args.value_of("SET_GROUPS") {
-        sys_groups = AllGroups::new().unwrap_or_exit(1);
+        sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
         sys_groups.remove_user_from_all_groups(login);
         sys_groups.add_user_to_groups(login, new_groups.split(',').collect()).unwrap_or_exit(1);
         sys_groups.save().unwrap_or_exit(1);
     }
-    
+
     if let Some(new_groups) = args.value_of("APPEND_GROUPS") {
-        sys_groups = AllGroups::new().unwrap_or_exit(1);
+        sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
         sys_groups.add_user_to_groups(login, new_groups.split(',').collect()).unwrap_or_exit(1);
         sys_groups.save().unwrap_or_exit(1);
     }
-    
+
     let uid = args
         .value_of("UID")
         .map(|uid| {
@@ -147,25 +147,25 @@ fn main() {
             }
             uid
         });
-    
+
     {
         let user = sys_users.get_mut_by_name(&login).unwrap_or_else(|| {
             eprintln!("usermod: user \"{}\" not found", login);
             exit(1);
         });
-        
+
         if let Some(gecos) = args.value_of("COMMENT") {
             user.name = gecos.to_string();
         }
-        
+
         if let Some(new_login) = args.value_of("NEW_LOGIN") {
             user.user = new_login.to_string();
         }
-        
+
         if let Some(shell) = args.value_of("SHELL") {
             user.shell = shell.to_string();
         }
-        
+
         if let Some(home) = args.value_of("HOME_DIR") {
             if args.is_present("MOVE_HOME") {
                 rename(&user.home, &home).unwrap_or_exit(1);
@@ -175,15 +175,15 @@ fn main() {
             }
             user.home = home.to_string();
         }
-        
+
         if let Some(uid) = uid {
             user.uid = uid;
         }
-        
+
         if let Some(gid) = args.value_of("GID") {
-            sys_groups = AllGroups::new().unwrap_or_exit(1);
+            sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
             let gid = gid.parse::<usize>().unwrap_or_exit(1);
-            
+
             if let Some(_group) = sys_groups.get_by_id(gid) {
                 user.gid = gid;
             } else {
@@ -192,6 +192,6 @@ fn main() {
             }
         }
     }
-    
+
     sys_users.save().unwrap_or_exit(1);
 }

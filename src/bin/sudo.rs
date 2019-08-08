@@ -12,7 +12,7 @@ use std::process::{Command, exit};
 
 use extra::option::OptionalExt;
 use termion::input::TermRead;
-use redox_users::{get_uid, AllUsers, AllGroups};
+use redox_users::{get_uid, All, AllUsers, AllGroups, Config};
 
 const MAX_ATTEMPTS: u16 = 3;
 const _MAN_PAGE: &'static str = /* @MANSTART{sudo} */ r#"
@@ -47,10 +47,10 @@ pub fn main() {
         eprintln!("sudo: no command provided");
         exit(1);
     });
-    
-    let users = AllUsers::new(true).unwrap_or_exit(1);
-    let groups = AllGroups::new().unwrap_or_exit(1);
-    
+
+    let users = AllUsers::new(Config::with_auth()).unwrap_or_exit(1);
+    let groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+
     let uid = get_uid().unwrap_or_exit(1);
 
     let user = users.get_by_id(uid).unwrap_or_exit(1);

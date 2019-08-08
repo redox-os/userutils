@@ -10,7 +10,7 @@ extern crate userutils;
 use std::process::exit;
 
 use extra::option::OptionalExt;
-use redox_users::{AllGroups, AllUsers};
+use redox_users::{All, AllGroups, AllUsers, Config};
 use userutils::create_user_dir;
 
 const _MAN_PAGE: &'static str = /* @MANSTART{useradd} */ r#"
@@ -52,7 +52,7 @@ OPTIONS
 
     -m, --create-home
         Creates the user's home directory if it does not already exist.
-        
+
         This option is not enabled by default. This option must be specified
         for a home directory to be created. If not set, the user's home dir is
         set to "/"
@@ -112,13 +112,13 @@ fn main() {
             +takes_value
             "Set LOGIN's user id. Positive ineger and must not be in use.")
     ).get_matches();
-    
+
     // unwrap is safe because of "+required". clap-rs is cool...
     let login = args.value_of("LOGIN").unwrap();
-    
-    let mut sys_users = AllUsers::new(true).unwrap_or_exit(1);
-    let mut sys_groups = AllGroups::new().unwrap_or_exit(1);
-    
+
+    let mut sys_users = AllUsers::new(Config::with_auth()).unwrap_or_exit(1);
+    let mut sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+
     let uid = match args.value_of("UID") {
         Some(uid) => {
             let id = uid.parse::<usize>().unwrap_or_exit(1);
@@ -135,7 +135,7 @@ fn main() {
                         exit(1);
                     })
     };
-    
+
     let gid = if args.is_present("NO_USER_GROUP") {
         let nobody = sys_groups
             .get_mut_by_name(DEFAULT_NO_GROUP)
@@ -170,11 +170,11 @@ fn main() {
             });
         id
     };
-    
+
     let gecos = args
         .value_of("COMMENT")
         .unwrap_or(login);
-    
+
     //Ugly way to satisfy the borrow checker...
     let mut sys_homes = String::from(DEFAULT_HOME);
     let userhome = args
@@ -188,24 +188,24 @@ fn main() {
                 "/"
             }
         });
-    
+
     let shell = args
         .value_of("SHELL")
         .unwrap_or(DEFAULT_SHELL);
-    
+
     sys_users
         .add_user(login, uid, gid, gecos, userhome, shell)
         .unwrap_or_else(|err| {
             eprintln!("useradd: {}: {}", err, login);
             exit(1);
         });
-    
+
     // Make sure to try and create the user/groups before we create
     // their home, that way we get a permissions error that makes
     // more sense
     sys_groups.save().unwrap_or_exit(1);
     sys_users.save().unwrap_or_exit(1);
-    
+
     if args.is_present("CREATE_HOME") {
         //Shouldn't ever error...
         let user = sys_users.get_by_id(uid).unwrap_or_exit(1);

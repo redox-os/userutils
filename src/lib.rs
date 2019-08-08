@@ -21,7 +21,7 @@ extern crate syscall;
 
 use std::io::Result as IoResult;
 
-use redox_users::{AllGroups, Result, User, UsersError};
+use redox_users::{All, AllGroups, Result, User, UsersError};
 use syscall::call::{open, fchmod, fchown};
 use syscall::error::Result as SysResult;
 use syscall::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
@@ -47,7 +47,7 @@ impl AllGroupsExt for AllGroups {
         }
         Ok(())
     }
-    
+
     /// Remove a user from all groups of which they are a member
     fn remove_user_from_all_groups(&mut self, login: &str) {
         for group in self.iter_mut() {

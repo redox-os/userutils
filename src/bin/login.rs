@@ -14,7 +14,7 @@ use std::str;
 
 use extra::option::OptionalExt;
 use termion::input::TermRead;
-use redox_users::{AllUsers};
+use redox_users::{All, AllUsers, Config};
 use userutils::spawn_shell;
 
 const _MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
@@ -61,7 +61,7 @@ pub fn main() {
         if !user.is_empty() {
             let stdin = io::stdin();
             let mut stdin = stdin.lock();
-            let sys_users = AllUsers::new(true).unwrap_or_exit(1);
+            let sys_users = AllUsers::new(Config::with_auth()).unwrap_or_exit(1);
 
             match sys_users.get_by_name(user) {
                 None => {
