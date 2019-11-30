@@ -1,5 +1,3 @@
-#![deny(warnings)]
-
 #[macro_use]
 extern crate clap;
 extern crate extra;
@@ -55,7 +53,11 @@ pub fn main() {
 
     loop {
         let user = liner::Context::new()
-            .read_line("\x1B[1mredox login:\x1B[0m ", &mut |_| {})
+            .read_line(
+                "\x1B[1mredox login:\x1B[0m ",
+                None,
+                &mut liner::BasicCompleter::new(Vec::<String>::new())
+            )
             .try(&mut stderr);
 
         if !user.is_empty() {
@@ -101,7 +103,7 @@ pub fn main() {
             }
         } else {
             stdout.write(b"\n").try(&mut stderr);
-            stdout.flush().try(&mut stderr);;
+            stdout.flush().try(&mut stderr);
         }
     }
 }

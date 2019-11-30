@@ -1,5 +1,3 @@
-#![deny(warnings)]
-
 #[macro_use]
 extern crate clap;
 extern crate extra;
@@ -98,8 +96,8 @@ fn main() {
             }
 
             if verified {
-                stdout.write_all(b"new password: ").try(&mut stderr);;
-                stdout.flush().try(&mut stderr);;
+                stdout.write_all(b"new password: ").try(&mut stderr);
+                stdout.flush().try(&mut stderr);
 
                 if let Some(new_password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
                     stdout.write(b"\nconfirm password: ").try(&mut stderr);
@@ -107,7 +105,7 @@ fn main() {
 
                     if let Some(confirm_password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
                         stdout.write(b"\n").try(&mut stderr);
-                        stdout.flush().try(&mut stderr);;
+                        stdout.flush().try(&mut stderr);
 
                         if new_password == confirm_password {
                             user.set_passwd(&new_password).unwrap_or_exit(1);
