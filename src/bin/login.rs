@@ -63,7 +63,7 @@ pub fn main() {
         if !user.is_empty() {
             let stdin = io::stdin();
             let mut stdin = stdin.lock();
-            let sys_users = AllUsers::new(Config::with_auth()).unwrap_or_exit(1);
+            let sys_users = AllUsers::authenticator(Config::default()).unwrap_or_exit(1);
 
             match sys_users.get_by_name(user) {
                 None => {

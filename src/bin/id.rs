@@ -92,7 +92,7 @@ pub fn main() {
             get_euid()
         }.unwrap_or_exit(1);
 
-        let users = AllUsers::new(Config::default()).unwrap_or_exit(1);
+        let users = AllUsers::basic(Config::default()).unwrap_or_exit(1);
         let user = users.get_by_id(uid).unwrap_or_exit(1);
 
         println!("{}", user.user);
@@ -151,7 +151,7 @@ pub fn main() {
     let euid = get_euid().unwrap_or_exit(1);
     let egid = get_egid().unwrap_or_exit(1);
 
-    let users = AllUsers::new(Config::default()).unwrap_or_exit(1);
+    let users = AllUsers::basic(Config::default()).unwrap_or_exit(1);
     let groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
 
     let user = users.get_by_id(euid).unwrap_or_exit(1);

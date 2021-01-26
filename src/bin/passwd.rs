@@ -55,7 +55,7 @@ fn main() {
     ).get_matches();
 
     let uid = get_uid().unwrap_or_exit(1);
-    let mut users = AllUsers::new(Config::with_auth()).unwrap_or_exit(1);
+    let mut users = AllUsers::authenticator(Config::default()).unwrap_or_exit(1);
 
     {
         let user = match args.value_of("LOGIN") {

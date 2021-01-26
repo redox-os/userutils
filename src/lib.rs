@@ -21,7 +21,7 @@ extern crate syscall;
 
 use std::io::Result as IoResult;
 
-use redox_users::{All, AllGroups, Result, User, UsersError};
+use redox_users::{auth, All, AllGroups, Result, User, UsersError};
 use syscall::call::{open, fchmod, fchown};
 use syscall::error::Result as SysResult;
 use syscall::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
@@ -75,7 +75,7 @@ impl AllGroupsExt for AllGroups {
 /// let user = sys_users.get_by_name("goyox86");
 /// spawn_shell(user).unwrap();
 /// ```
-pub fn spawn_shell(user: &User) -> IoResult<i32> {
+pub fn spawn_shell(user: &User<auth::Full>) -> IoResult<i32> {
     let mut command = user.shell_cmd();
 
     let mut child = command.spawn()?;
@@ -86,7 +86,7 @@ pub fn spawn_shell(user: &User) -> IoResult<i32> {
 }
 
 /// Creates a directory with 700 user:user permissions
-pub fn create_user_dir<T>(user: &User, dir: T) -> SysResult<()>
+pub fn create_user_dir<T>(user: &User<auth::Full>, dir: T) -> SysResult<()>
     where T: AsRef<str> + std::convert::AsRef<[u8]>
 {
     let fd = open(dir, O_CREAT | O_DIRECTORY | O_CLOEXEC)?;

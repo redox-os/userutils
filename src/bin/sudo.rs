@@ -46,7 +46,7 @@ pub fn main() {
         exit(1);
     });
 
-    let users = AllUsers::new(Config::with_auth()).unwrap_or_exit(1);
+    let users = AllUsers::authenticator(Config::default()).unwrap_or_exit(1);
     let groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
 
     let uid = get_uid().unwrap_or_exit(1);

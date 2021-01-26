@@ -63,7 +63,7 @@ fn main() {
         if let Some(gid) = args.value_of("GID") {
             let gid = gid.parse::<usize>().unwrap_or_exit(1);
             // Update users
-            let mut sys_users = AllUsers::new(Config::default()).unwrap_or_exit(1);
+            let mut sys_users = AllUsers::authenticator(Config::default()).unwrap_or_exit(1);
             for user in sys_users.iter_mut() {
                 if user.gid == group.gid {
                     user.gid = gid;

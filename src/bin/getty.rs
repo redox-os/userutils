@@ -197,7 +197,7 @@ pub fn main() {
         Err(err) => fail(&format!("getty: failed to open TTY {}: {}", tty, err), &mut stderr),
     };
 
-    match unsafe { syscall::clone(0) } {
+    match unsafe { syscall::clone(syscall::CloneFlags::empty()) } {
         Ok(0) => daemon(tty_fd as RawFd, clear, &mut stderr),
         Ok(_) => (),
         Err(err) => fail(&format!("getty: failed to fork login: {}", err), &mut stderr)
