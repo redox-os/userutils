@@ -54,7 +54,7 @@ path = "src/bin/usermod.rs"
 clap = "2.33.0"
 extra = { git = "https://gitlab.redox-os.org/redox-os/libextra.git" }
 redox_liner = "0.5.1"
-redox_syscall = "0.2.4"
+redox_syscall = "0.2.7"
 redox_termios = "0.1.1"
 redox_users = "0.4.0"
 termion = "1.5.6"
