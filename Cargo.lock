@@ -159,6 +159,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "18a6dbe30758c9f83eb00cbea4ac95966305f5a7772f3f42ebfc7fc7eddbd8e1"
 
 [[package]]
+name = "redox-daemon"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "21e31c834277709c7ff3eb74959fe62be4b45b1189ba9d41fd3744cd3a9c554f"
+dependencies = [
+ "libc",
+ "redox_syscall",
+]
+
+[[package]]
 name = "redox_liner"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -250,6 +260,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "extra",
+ "redox-daemon",
  "redox_liner",
  "redox_syscall",
  "redox_termios",

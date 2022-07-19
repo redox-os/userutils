@@ -197,9 +197,9 @@ pub fn main() {
         Err(err) => fail(&format!("getty: failed to open TTY {}: {}", tty, err), &mut stderr),
     };
 
-    match unsafe { syscall::clone(syscall::CloneFlags::empty()) } {
-        Ok(0) => daemon(tty_fd as RawFd, clear, &mut stderr),
-        Ok(_) => (),
-        Err(err) => fail(&format!("getty: failed to fork login: {}", err), &mut stderr)
-    }
+    redox_daemon::Daemon::new(|d| {
+        d.ready().expect("getty: failed to notify ");
+        daemon(tty_fd as RawFd, clear, &mut stderr);
+        std::process::exit(0);
+    }).unwrap_or_else(|err| fail(&format!("getty: failed to fork login: {}", err), &mut stderr));
 }
