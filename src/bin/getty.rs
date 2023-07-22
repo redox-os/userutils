@@ -10,12 +10,12 @@ use std::io::{self, ErrorKind, Read, Stderr, Write};
 use std::process::{Child, Command, Stdio};
 use std::str;
 
-use std::os::fd::AsRawFd;
 use std::os::unix::io::{FromRawFd, RawFd};
 
 use orbclient::{Event, EventOption};
 
 use extra::io::fail;
+use syscall::O_RDONLY;
 
 const _MAN_PAGE: &'static str = /* @MANSTART{getty} */
     r#"
@@ -121,7 +121,7 @@ fn process_events(ctrl: &mut bool, events: &[Event]) -> Vec<u8> {
 pub fn handle(
     event_file: &mut File,
     tty_fd: RawFd,
-    consumer_fd: RawFd,
+    consumer_fd: Option<RawFd>,
     master_fd: RawFd,
     process: &mut Child,
 ) {
@@ -158,39 +158,48 @@ pub fn handle(
                     let _ = syscall::fsync(tty_fd as usize);
                 }
             }
-        } else if event_id as RawFd == consumer_fd {
-            let mut packet = [0; 4096];
-            loop {
-                let count = match syscall::read(consumer_fd as usize, &mut packet) {
-                    Ok(0) => return,
-                    Ok(count) => count,
-                    Err(ref err) if err.errno == syscall::EAGAIN => break,
-                    Err(_) => panic!("getty: failed to read from master TTY"),
-                };
-
-                let events = unsafe {
-                    core::slice::from_raw_parts(
-                        packet.as_ptr() as *const Event,
-                        count / core::mem::size_of::<Event>(),
-                    )
-                };
-
-                let buf = process_events(&mut ctrl, events);
-                syscall::write(master_fd as usize, buf.as_slice())
-                    .expect("getty: failed to write to TTY");
-
-                if packet[0] & 1 == 1 {
-                    let _ = syscall::fsync(tty_fd as usize);
-                }
-            }
         } else {
-            println!("Unknown event {}", event_id);
+            if let Some(consumer_fd) = consumer_fd {
+                if event_id as RawFd != consumer_fd {
+                    println!("getty: unknown event {}", event_id);
+                }
+
+                let mut packet = [0; 4096];
+                loop {
+                    let count = match syscall::read(consumer_fd as usize, &mut packet) {
+                        Ok(0) => return,
+                        Ok(count) => count,
+                        Err(ref err) if err.errno == syscall::EAGAIN => break,
+                        Err(_) => panic!("getty: failed to read from master TTY"),
+                    };
+
+                    let events = unsafe {
+                        core::slice::from_raw_parts(
+                            packet.as_ptr() as *const Event,
+                            count / core::mem::size_of::<Event>(),
+                        )
+                    };
+
+                    let buf = process_events(&mut ctrl, events);
+                    syscall::write(master_fd as usize, buf.as_slice())
+                        .expect("getty: failed to write to TTY");
+
+                    if packet[0] & 1 == 1 {
+                        let _ = syscall::fsync(tty_fd as usize);
+                    }
+                }
+            } else {
+                println!("getty: unknown event {}", event_id);
+            }
         }
     };
 
     handle_event(tty_fd as usize);
     handle_event(master_fd as usize);
-    handle_event(consumer_fd as usize);
+
+    if let Some(consumer_fd) = consumer_fd {
+        handle_event(consumer_fd as usize);
+    }
 
     'events: loop {
         let mut sys_event = syscall::Event::default();
@@ -240,7 +249,7 @@ pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
     })
 }
 
-fn daemon(tty_fd: RawFd, consumer_fd: RawFd, clear: bool, stderr: &mut Stderr) {
+fn daemon(tty_fd: RawFd, consumer_fd: Option<RawFd>, clear: bool, stderr: &mut Stderr) {
     let (columns, lines) = {
         let mut path = [0; 4096];
         if let Ok(count) = syscall::fpath(tty_fd as usize, &mut path) {
@@ -263,9 +272,19 @@ fn daemon(tty_fd: RawFd, consumer_fd: RawFd, clear: bool, stderr: &mut Stderr) {
         .open("event:")
         .expect("getty: failed to open event file");
 
+    if let Some(consumer_fd) = consumer_fd {
+        event_file
+            .write(&syscall::Event {
+                id: consumer_fd as usize,
+                flags: syscall::flag::EVENT_READ,
+                data: 0,
+            })
+            .expect("getty: failed to fevent TTY");
+    }
+
     event_file
         .write(&syscall::Event {
-            id: consumer_fd as usize,
+            id: tty_fd as usize,
             flags: syscall::flag::EVENT_READ,
             data: 0,
         })
@@ -336,20 +355,19 @@ pub fn main() {
 
     let mut buf = [0; 1024];
     let (vt_path, consumer) = if vt.parse::<usize>().is_ok() {
-        let consumer =
-            File::open(format!("input:consumer/{vt}")).expect("getty: failed to open consumer");
+        let consumer = syscall::open(format!("input:consumer/{vt}"), O_RDONLY)
+            .expect("getty: failed to open consumer");
 
-        let written = syscall::fpath(consumer.as_raw_fd() as usize, &mut buf)
-            .expect("getty: failed to get the display");
+        let written = syscall::fpath(consumer, &mut buf).expect("getty: failed to get the display");
         assert!(written <= buf.len());
 
         (
             core::str::from_utf8(&buf[..written])
                 .expect("getty: UTF-8 validation failed for the display path"),
-            consumer,
+            Some(consumer as RawFd),
         )
     } else {
-        (vt, File::open(vt).expect("getty: failed to open display"))
+        (vt, None)
     };
 
     let tty_fd = match syscall::open(
@@ -363,11 +381,9 @@ pub fn main() {
         ),
     };
 
-    let consumer_fd = consumer.as_raw_fd();
-
     redox_daemon::Daemon::new(|d| {
         d.ready().expect("getty: failed to notify ");
-        daemon(tty_fd as RawFd, consumer_fd, clear, &mut stderr);
+        daemon(tty_fd as RawFd, consumer, clear, &mut stderr);
         std::process::exit(0);
     })
     .unwrap_or_else(|err| {
