@@ -17,14 +17,14 @@
 //! - `whoami`: Display effective user ID.
 
 extern crate redox_users;
-extern crate syscall;
+extern crate libredox;
 
 use std::io::Result as IoResult;
 
 use redox_users::{auth, All, AllGroups, Result, User, Error};
-use syscall::call::{open, fchmod, fchown};
-use syscall::error::Result as SysResult;
-use syscall::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
+use libredox::call::{open, fchown};
+use libredox::error::Result as SysResult;
+use libredox::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
 
 const DEFAULT_MODE: u16 = 0o700;
 
@@ -89,8 +89,7 @@ pub fn spawn_shell(user: &User<auth::Full>) -> IoResult<i32> {
 pub fn create_user_dir<T>(user: &User<auth::Full>, dir: T) -> SysResult<()>
     where T: AsRef<str> + std::convert::AsRef<[u8]>
 {
-    let fd = open(dir, O_CREAT | O_DIRECTORY | O_CLOEXEC)?;
-    fchmod(fd, DEFAULT_MODE)?;
+    let fd = open(dir, O_CREAT | O_DIRECTORY | O_CLOEXEC, DEFAULT_MODE)?;
     fchown(fd, user.uid as u32, user.gid as u32)?;
     Ok(())
 }

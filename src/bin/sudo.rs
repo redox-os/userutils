@@ -1,5 +1,4 @@
 extern crate extra;
-extern crate syscall;
 extern crate termion;
 extern crate redox_users;
 

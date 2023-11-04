@@ -1,7 +1,6 @@
 #[macro_use]
 extern crate clap;
 extern crate extra;
-extern crate syscall;
 extern crate redox_users;
 extern crate userutils;
 
