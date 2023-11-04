@@ -206,12 +206,12 @@ dependencies = [
 
 [[package]]
 name = "redox-daemon"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "811fd0d382a70c9e9192166ee794567b65ef34cc7309c86a49b071779ca9b5f3"
+checksum = "353178b5771a301b9d2b318914ab5dfeb21dd6e65930faedde19248cfceca5a7"
 dependencies = [
  "libc",
- "redox_syscall 0.3.5",
+ "libredox",
 ]
 
 [[package]]
@@ -388,7 +388,7 @@ dependencies = [
  "orbclient",
  "redox-daemon",
  "redox_liner",
- "redox_syscall 0.3.5",
+ "redox_syscall 0.4.1",
  "redox_termios",
  "redox_users",
  "termion",
