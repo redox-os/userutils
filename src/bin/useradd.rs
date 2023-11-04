@@ -8,7 +8,7 @@ extern crate userutils;
 use std::process::exit;
 
 use extra::option::OptionalExt;
-use redox_users::{All, AllGroups, AllUsers, Config};
+use redox_users::{All, AllGroups, AllUsers, Config, GroupBuilder, UserBuilder};
 use userutils::create_user_dir;
 
 const _MAN_PAGE: &'static str = /* @MANSTART{useradd} */ r#"
@@ -114,8 +114,8 @@ fn main() {
     // unwrap is safe because of "+required". clap-rs is cool...
     let login = args.value_of("LOGIN").unwrap();
 
-    let mut sys_users = AllUsers::authenticator(Config::default()).unwrap_or_exit(1);
-    let mut sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+    let mut sys_users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
+    let mut sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
 
     let uid = match args.value_of("UID") {
         Some(uid) => {
@@ -161,7 +161,7 @@ fn main() {
                         })
         };
         sys_groups
-            .add_group(login, id, &[login])
+            .add_group(GroupBuilder::new(login).gid(id).user(login))
             .unwrap_or_else(|err| {
                 eprintln!("useradd: {}: {}", err, login);
                 exit(1);
@@ -191,8 +191,9 @@ fn main() {
         .value_of("SHELL")
         .unwrap_or(DEFAULT_SHELL);
 
+    let user = UserBuilder::new(login).uid(uid).gid(gid).name(gecos).home(userhome).shell(shell);
     sys_users
-        .add_user(login, uid, gid, gecos, userhome, shell)
+        .add_user(user)
         .unwrap_or_else(|err| {
             eprintln!("useradd: {}: {}", err, login);
             exit(1);

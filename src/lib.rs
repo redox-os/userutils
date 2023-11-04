@@ -21,7 +21,7 @@ extern crate syscall;
 
 use std::io::Result as IoResult;
 
-use redox_users::{auth, All, AllGroups, Result, User, UsersError};
+use redox_users::{auth, All, AllGroups, Result, User, Error};
 use syscall::call::{open, fchmod, fchown};
 use syscall::error::Result as SysResult;
 use syscall::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
@@ -41,7 +41,7 @@ impl AllGroupsExt for AllGroups {
         for groupname in new_groups {
             let group = match self.get_mut_by_name(groupname) {
                 Some(group) => group,
-                None => return Err(UsersError::NotFound.into())
+                None => return Err(Error::UserNotFound)
             };
             group.users.push(login.to_string());
         }

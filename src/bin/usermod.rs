@@ -119,18 +119,18 @@ fn main() {
     let login = args.value_of("LOGIN").unwrap();
 
     //TODO: Does not always need shadowfile access
-    let mut sys_users = AllUsers::authenticator(Config::default()).unwrap_or_exit(1);
+    let mut sys_users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
     let mut sys_groups;
 
     if let Some(new_groups) = args.value_of("SET_GROUPS") {
-        sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+        sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
         sys_groups.remove_user_from_all_groups(login);
         sys_groups.add_user_to_groups(login, new_groups.split(',').collect()).unwrap_or_exit(1);
         sys_groups.save().unwrap_or_exit(1);
     }
 
     if let Some(new_groups) = args.value_of("APPEND_GROUPS") {
-        sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+        sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
         sys_groups.add_user_to_groups(login, new_groups.split(',').collect()).unwrap_or_exit(1);
         sys_groups.save().unwrap_or_exit(1);
     }
