@@ -227,8 +227,9 @@ dependencies = [
 
 [[package]]
 name = "redox_event"
-version = "0.1.0"
-source = "git+https://gitlab.redox-os.org/redox-os/event.git#7df16e700d1f72adac8ed23c2a56a9b366ea1102"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b78fedc17aea72caee38ac1208e0f709fa1641af1bbe0205e7d434413a60621d"
 dependencies = [
  "bitflags 2.4.1",
  "libredox 0.0.1",
