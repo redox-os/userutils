@@ -7,7 +7,7 @@ use extra::option::OptionalExt;
 
 use std::process::exit;
 
-use redox_users::{All, AllGroups, Config, UsersError};
+use redox_users::{All, AllGroups, Config, Error, GroupBuilder};
 
 const _MAN_PAGE: &'static str = /* @MANSTART{groupadd} */ r#"
 NAME
@@ -48,7 +48,7 @@ fn main() {
         (@arg GID:   -g --gid   +takes_value "Group id. Positive integer and must not be in use")
     ).get_matches();
 
-    let mut sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+    let mut sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
 
     let groupname = args.value_of("GROUP").unwrap();
 
@@ -67,9 +67,10 @@ fn main() {
                 })
     };
 
-    match sys_groups.add_group(groupname, gid, &[""]) {
-        Ok(_) => { },
-        Err(ref err) if err.downcast_ref::<UsersError>() == Some(&UsersError::AlreadyExists) && args.is_present("FORCE") => {
+    let group = GroupBuilder::new(groupname).gid(gid);
+    match sys_groups.add_group(group) {
+        Ok(_) => (),
+        Err(Error::GroupAlreadyExists) if args.is_present("FORCE") => {
             exit(0);
         },
         Err(err) => {

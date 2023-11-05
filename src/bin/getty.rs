@@ -1,21 +1,24 @@
 #[macro_use]
 extern crate clap;
 extern crate extra;
+extern crate libredox;
 extern crate orbclient;
 extern crate redox_termios;
-extern crate syscall;
+extern crate event;
 
-use std::fs::{File, OpenOptions};
-use std::io::{self, ErrorKind, Read, Stderr, Write};
+use std::io::{self, ErrorKind, Stderr};
 use std::process::{Child, Command, Stdio};
 use std::str;
 
 use std::os::unix::io::{FromRawFd, RawFd};
 
+use event::{EventFlags, RawEventQueue};
+use libredox::errno::EAGAIN;
 use orbclient::{Event, EventOption};
 
 use extra::io::fail;
-use syscall::O_RDONLY;
+use libredox::flag::{O_RDONLY, self};
+use libredox::call as redox;
 
 const _MAN_PAGE: &'static str = /* @MANSTART{getty} */
     r#"
@@ -119,7 +122,7 @@ fn process_events(ctrl: &mut bool, events: &[Event]) -> Vec<u8> {
 }
 
 pub fn handle(
-    event_file: &mut File,
+    event_queue: &mut RawEventQueue,
     tty_fd: RawFd,
     consumer_fd: Option<RawFd>,
     master_fd: RawFd,
@@ -134,28 +137,28 @@ pub fn handle(
         if event_id as RawFd == tty_fd {
             let mut packet = [0; 4096];
             loop {
-                let count = match syscall::read(tty_fd as usize, &mut packet) {
+                let count = match redox::read(tty_fd as usize, &mut packet) {
                     Ok(0) => return,
                     Ok(count) => count,
-                    Err(ref err) if err.errno == syscall::EAGAIN => break,
+                    Err(ref err) if err.errno == EAGAIN => break,
                     Err(_) => panic!("getty: failed to read from TTY"),
                 };
-                syscall::write(master_fd as usize, &packet[..count])
+                redox::write(master_fd as usize, &packet[..count])
                     .expect("getty: failed to write master PTY");
             }
         } else if event_id as RawFd == master_fd {
             let mut packet = [0; 4096];
             loop {
-                let count = match syscall::read(master_fd as usize, &mut packet) {
+                let count = match redox::read(master_fd as usize, &mut packet) {
                     Ok(0) => return,
                     Ok(count) => count,
-                    Err(ref err) if err.errno == syscall::EAGAIN => break,
+                    Err(ref err) if err.errno == EAGAIN => break,
                     Err(_) => panic!("getty: failed to read from master TTY"),
                 };
-                syscall::write(tty_fd as usize, &packet[1..count])
+                redox::write(tty_fd as usize, &packet[1..count])
                     .expect("getty: failed to write to TTY");
                 if packet[0] & 1 == 1 {
-                    let _ = syscall::fsync(tty_fd as usize);
+                    let _ = redox::fsync(tty_fd as usize);
                 }
             }
         } else {
@@ -166,10 +169,10 @@ pub fn handle(
 
                 let mut packet = [0; 4096];
                 loop {
-                    let count = match syscall::read(consumer_fd as usize, &mut packet) {
+                    let count = match redox::read(consumer_fd as usize, &mut packet) {
                         Ok(0) => return,
                         Ok(count) => count,
-                        Err(ref err) if err.errno == syscall::EAGAIN => break,
+                        Err(ref err) if err.errno == EAGAIN => break,
                         Err(_) => panic!("getty: failed to read from master TTY"),
                     };
 
@@ -181,11 +184,11 @@ pub fn handle(
                     };
 
                     let buf = process_events(&mut ctrl, events);
-                    syscall::write(master_fd as usize, buf.as_slice())
+                    redox::write(master_fd as usize, buf.as_slice())
                         .expect("getty: failed to write to TTY");
 
                     if packet[0] & 1 == 1 {
-                        let _ = syscall::fsync(tty_fd as usize);
+                        let _ = redox::fsync(tty_fd as usize);
                     }
                 }
             } else {
@@ -202,11 +205,10 @@ pub fn handle(
     }
 
     'events: loop {
-        let mut sys_event = syscall::Event::default();
-        event_file
-            .read(&mut sys_event)
+        let sys_event = event_queue
+            .next().expect("getty: event queue stopped")
             .expect("getty: failed to read event file");
-        handle_event(sys_event.id);
+        handle_event(sys_event.fd);
 
         match process.try_wait() {
             Ok(status) => match status {
@@ -225,25 +227,26 @@ pub fn handle(
 }
 
 pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
-    let master = syscall::open(
+    let master = redox::open(
         "pty:",
-        syscall::O_CLOEXEC | syscall::O_RDWR | syscall::O_CREAT | syscall::O_NONBLOCK,
+        flag::O_CLOEXEC | flag::O_RDWR | flag::O_CREAT | flag::O_NONBLOCK,
+        0,
     )
     .expect("getty: failed to create PTY");
 
-    if let Ok(winsize_fd) = syscall::dup(master, b"winsize") {
-        let _ = syscall::write(
+    if let Ok(winsize_fd) = redox::dup(master, b"winsize") {
+        let _ = redox::write(
             winsize_fd,
             &redox_termios::Winsize {
                 ws_row: lines as u16,
                 ws_col: columns as u16,
             },
         );
-        let _ = syscall::close(winsize_fd);
+        let _ = redox::close(winsize_fd);
     }
 
     let mut buf: [u8; 4096] = [0; 4096];
-    let count = syscall::fpath(master, &mut buf).unwrap();
+    let count = redox::fpath(master, &mut buf).unwrap();
     (master as RawFd, unsafe {
         String::from_utf8_unchecked(Vec::from(&buf[..count]))
     })
@@ -252,7 +255,7 @@ pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
 fn daemon(tty_fd: RawFd, consumer_fd: Option<RawFd>, clear: bool, stderr: &mut Stderr) {
     let (columns, lines) = {
         let mut path = [0; 4096];
-        if let Ok(count) = syscall::fpath(tty_fd as usize, &mut path) {
+        if let Ok(count) = redox::fpath(tty_fd as usize, &mut path) {
             let path_str = str::from_utf8(&path[..count]).unwrap_or("");
             let reference = path_str.split(':').nth(1).unwrap_or("");
             let mut parts = reference.split('/').skip(1);
@@ -266,49 +269,29 @@ fn daemon(tty_fd: RawFd, consumer_fd: Option<RawFd>, clear: bool, stderr: &mut S
 
     let (master_fd, pty) = getpty(columns, lines);
 
-    let mut event_file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .open("event:")
-        .expect("getty: failed to open event file");
+    let mut event_queue = event::RawEventQueue::new().expect("getty: failed to open event queue");
 
     if let Some(consumer_fd) = consumer_fd {
-        event_file
-            .write(&syscall::Event {
-                id: consumer_fd as usize,
-                flags: syscall::flag::EVENT_READ,
-                data: 0,
-            })
-            .expect("getty: failed to fevent TTY");
+        event_queue.subscribe(consumer_fd as usize, 0, EventFlags::READ).expect("getty: failed to fevent TTY");
     }
 
-    event_file
-        .write(&syscall::Event {
-            id: tty_fd as usize,
-            flags: syscall::flag::EVENT_READ,
-            data: 0,
-        })
-        .expect("getty: failed to fevent TTY");
+    event_queue.subscribe(tty_fd as usize, 0, EventFlags::READ).expect("getty: failed to fevent TTY");
 
-    event_file
-        .write(&syscall::Event {
-            id: master_fd as usize,
-            flags: syscall::flag::EVENT_READ,
-            data: 0,
-        })
+    event_queue
+        .subscribe(master_fd as usize, 0, EventFlags::READ)
         .expect("getty: failed to fevent master PTY");
 
     loop {
         if clear {
-            let _ = syscall::write(tty_fd as usize, b"\x1Bc");
+            let _ = redox::write(tty_fd as usize, b"\x1Bc");
         }
-        let _ = syscall::fsync(tty_fd as usize);
+        let _ = redox::fsync(tty_fd as usize);
 
-        let slave_stdin = syscall::open(&pty, syscall::O_CLOEXEC | syscall::O_RDONLY)
+        let slave_stdin = redox::open(&pty, flag::O_CLOEXEC | flag::O_RDONLY, 0)
             .expect("getty: failed to open slave stdin");
-        let slave_stdout = syscall::open(&pty, syscall::O_CLOEXEC | syscall::O_WRONLY)
+        let slave_stdout = redox::open(&pty, flag::O_CLOEXEC | flag::O_WRONLY, 0)
             .expect("getty: failed to open slave stdout");
-        let slave_stderr = syscall::open(&pty, syscall::O_CLOEXEC | syscall::O_WRONLY)
+        let slave_stderr = redox::open(&pty, flag::O_CLOEXEC | flag::O_WRONLY, 0)
             .expect("getty: failed to open slave stderr");
 
         let mut command = Command::new("login");
@@ -326,7 +309,7 @@ fn daemon(tty_fd: RawFd, consumer_fd: Option<RawFd>, clear: bool, stderr: &mut S
         match command.spawn() {
             Ok(mut process) => {
                 handle(
-                    &mut event_file,
+                    &mut event_queue,
                     tty_fd,
                     consumer_fd,
                     master_fd,
@@ -355,10 +338,10 @@ pub fn main() {
 
     let mut buf = [0; 1024];
     let (vt_path, consumer) = if vt.parse::<usize>().is_ok() {
-        let consumer = syscall::open(format!("input:consumer/{vt}"), O_RDONLY)
+        let consumer = redox::open(format!("input:consumer/{vt}"), O_RDONLY, 0)
             .expect("getty: failed to open consumer");
 
-        let written = syscall::fpath(consumer, &mut buf).expect("getty: failed to get the display");
+        let written = redox::fpath(consumer, &mut buf).expect("getty: failed to get the display");
         assert!(written <= buf.len());
 
         (
@@ -370,9 +353,10 @@ pub fn main() {
         (vt, None)
     };
 
-    let tty_fd = match syscall::open(
+    let tty_fd = match redox::open(
         vt_path,
-        syscall::O_CLOEXEC | syscall::flag::O_RDWR | syscall::flag::O_NONBLOCK,
+        flag::O_CLOEXEC | flag::O_RDWR | flag::O_NONBLOCK,
+        0,
     ) {
         Ok(fd) => fd,
         Err(err) => fail(

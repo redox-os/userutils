@@ -54,7 +54,7 @@ pub fn main() {
     loop {
         let user = liner::Context::new()
             .read_line(
-                "\x1B[1mredox login:\x1B[0m ",
+                liner::Prompt::from("\x1B[1mredox login:\x1B[0m "),
                 None,
                 &mut liner::BasicCompleter::new(Vec::<String>::new())
             )

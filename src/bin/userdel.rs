@@ -48,8 +48,8 @@ fn main() {
 
     let login = args.value_of("LOGIN").unwrap();
 
-    let mut sys_users = AllUsers::authenticator(Config::default()).unwrap_or_exit(1);
-    let mut sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+    let mut sys_users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
+    let mut sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
     {
         sys_groups.remove_user_from_all_groups(login);
 

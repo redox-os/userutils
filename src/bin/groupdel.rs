@@ -39,7 +39,7 @@ fn main() {
 
     let group = matches.value_of("GROUP").unwrap();
 
-    let mut sys_groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
+    let mut sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
 
     sys_groups.remove_by_name(group.to_string());
 
