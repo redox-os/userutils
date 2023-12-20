@@ -1,10 +1,10 @@
 #[macro_use]
 extern crate clap;
+extern crate event;
 extern crate extra;
 extern crate libredox;
 extern crate orbclient;
 extern crate redox_termios;
-extern crate event;
 
 use std::io::{self, ErrorKind, Stderr};
 use std::process::{Child, Command, Stdio};
@@ -17,8 +17,8 @@ use libredox::errno::EAGAIN;
 use orbclient::{Event, EventOption};
 
 use extra::io::fail;
-use libredox::flag::{O_RDONLY, self};
 use libredox::call as redox;
+use libredox::flag::{self, O_RDONLY};
 
 const _MAN_PAGE: &'static str = /* @MANSTART{getty} */
     r#"
@@ -26,7 +26,7 @@ NAME
     getty - set terminal mode
 
 SYNOPSIS
-    getty [-J | --noclear] tty
+    getty [-J | --noclear | -C | --contain ] tty
     getty [ -h | --help ]
 
 DESCRIPTION
@@ -40,6 +40,9 @@ OPTIONS
 
     -J, --noclear
         Do not clear the screen before forking login(1).
+
+    -C, --contain
+        Run contain_login instead of login
 
 AUTHOR
     Written by Jeremy Soller.
@@ -206,7 +209,8 @@ pub fn handle(
 
     'events: loop {
         let sys_event = event_queue
-            .next().expect("getty: event queue stopped")
+            .next()
+            .expect("getty: event queue stopped")
             .expect("getty: failed to read event file");
         handle_event(sys_event.fd);
 
@@ -252,7 +256,13 @@ pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
     })
 }
 
-fn daemon(tty_fd: RawFd, consumer_fd: Option<RawFd>, clear: bool, stderr: &mut Stderr) {
+fn daemon(
+    tty_fd: RawFd,
+    consumer_fd: Option<RawFd>,
+    clear: bool,
+    contain: bool,
+    stderr: &mut Stderr,
+) {
     let (columns, lines) = {
         let mut path = [0; 4096];
         if let Ok(count) = redox::fpath(tty_fd as usize, &mut path) {
@@ -272,10 +282,14 @@ fn daemon(tty_fd: RawFd, consumer_fd: Option<RawFd>, clear: bool, stderr: &mut S
     let mut event_queue = event::RawEventQueue::new().expect("getty: failed to open event queue");
 
     if let Some(consumer_fd) = consumer_fd {
-        event_queue.subscribe(consumer_fd as usize, 0, EventFlags::READ).expect("getty: failed to fevent TTY");
+        event_queue
+            .subscribe(consumer_fd as usize, 0, EventFlags::READ)
+            .expect("getty: failed to fevent TTY");
     }
 
-    event_queue.subscribe(tty_fd as usize, 0, EventFlags::READ).expect("getty: failed to fevent TTY");
+    event_queue
+        .subscribe(tty_fd as usize, 0, EventFlags::READ)
+        .expect("getty: failed to fevent TTY");
 
     event_queue
         .subscribe(master_fd as usize, 0, EventFlags::READ)
@@ -294,7 +308,11 @@ fn daemon(tty_fd: RawFd, consumer_fd: Option<RawFd>, clear: bool, stderr: &mut S
         let slave_stderr = redox::open(&pty, flag::O_CLOEXEC | flag::O_WRONLY, 0)
             .expect("getty: failed to open slave stderr");
 
-        let mut command = Command::new("login");
+        let mut command = if contain {
+            Command::new("contain_login")
+        } else {
+            Command::new("login")
+        };
         unsafe {
             command
                 .stdin(Stdio::from_raw_fd(slave_stdin as RawFd))
@@ -329,10 +347,13 @@ pub fn main() {
         (about: "Set terminal mode")
         (@arg TTY: +required "")
         (@arg NO_CLEAR: -J --("no-clear") "Do not clear the screen before forking")
+        (@arg CONTAIN: -C --("contain") "Run contain_login instead of login")
     )
     .get_matches();
 
     let clear = !args.is_present("NO_CLEAR");
+
+    let contain = args.is_present("CONTAIN");
 
     let vt = args.value_of("TTY").unwrap();
 
@@ -367,7 +388,7 @@ pub fn main() {
 
     redox_daemon::Daemon::new(|d| {
         d.ready().expect("getty: failed to notify ");
-        daemon(tty_fd as RawFd, consumer, clear, &mut stderr);
+        daemon(tty_fd as RawFd, consumer, clear, contain, &mut stderr);
         std::process::exit(0);
     })
     .unwrap_or_else(|err| {
