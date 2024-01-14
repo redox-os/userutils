@@ -357,25 +357,20 @@ pub fn main() {
 
     let vt = args.value_of("TTY").unwrap();
 
-    let mut buf = [0; 1024];
+    let buf: String;
     let (vt_path, consumer) = if vt.parse::<usize>().is_ok() {
         let consumer = redox::open(format!("input:consumer/{vt}"), O_RDONLY, 0)
             .expect("getty: failed to open consumer");
 
-        let written = redox::fpath(consumer, &mut buf).expect("getty: failed to get the display");
-        assert!(written <= buf.len());
+        buf = format!("fbcon:{vt}");
 
-        (
-            core::str::from_utf8(&buf[..written])
-                .expect("getty: UTF-8 validation failed for the display path"),
-            Some(consumer as RawFd),
-        )
+        (&*buf, Some(consumer as RawFd))
     } else {
         (vt, None)
     };
 
     let tty_fd = match redox::open(
-        vt_path,
+        &vt_path,
         flag::O_CLOEXEC | flag::O_RDWR | flag::O_NONBLOCK,
         0,
     ) {
