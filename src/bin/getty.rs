@@ -197,8 +197,6 @@ fn daemon(
                 .stdin(Stdio::from_raw_fd(slave_stdin as RawFd))
                 .stdout(Stdio::from_raw_fd(slave_stdout as RawFd))
                 .stderr(Stdio::from_raw_fd(slave_stderr as RawFd))
-                .env("COLUMNS", format!("{}", columns))
-                .env("LINES", format!("{}", lines))
                 .env("TERM", "xterm-256color")
                 .env("TTY", &pty);
         }
