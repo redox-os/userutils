@@ -70,8 +70,8 @@ OPTIONS
 AUTHORS
     Written by Wesley Hershberger.
 "#; /* @MANEND */
-const DEFAULT_SHELL: &'static str = "file:/bin/ion";
-const DEFAULT_HOME: &'static str = "file:/home";
+const DEFAULT_SHELL: &'static str = "/bin/ion";
+const DEFAULT_HOME: &'static str = "/home";
 const DEFAULT_NO_GROUP: &'static str = "nobody";
 
 fn main() {
