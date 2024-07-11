@@ -118,7 +118,7 @@ pub fn handle(
 
 pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
     let master = redox::open(
-        "pty:",
+        "/scheme/pty",
         flag::O_CLOEXEC | flag::O_RDWR | flag::O_CREAT | flag::O_NONBLOCK,
         0,
     )
@@ -235,7 +235,7 @@ pub fn main() {
 
     let buf: String;
     let vt_path = if vt.parse::<usize>().is_ok() {
-        buf = format!("fbcon:{vt}");
+        buf = format!("/scheme/fbcon/{vt}");
         &*buf
     } else {
         vt
