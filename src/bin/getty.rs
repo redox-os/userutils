@@ -66,7 +66,7 @@ pub fn handle(
                 let count = match redox::read(tty_fd as usize, &mut packet) {
                     Ok(0) => return,
                     Ok(count) => count,
-                    Err(ref err) if err.errno == EAGAIN => break,
+                    Err(ref err) if err.errno() == EAGAIN => break,
                     Err(_) => panic!("getty: failed to read from TTY"),
                 };
                 redox::write(master_fd as usize, &packet[..count])
@@ -78,7 +78,7 @@ pub fn handle(
                 let count = match redox::read(master_fd as usize, &mut packet) {
                     Ok(0) => return,
                     Ok(count) => count,
-                    Err(ref err) if err.errno == EAGAIN => break,
+                    Err(ref err) if err.errno() == EAGAIN => break,
                     Err(_) => panic!("getty: failed to read from master TTY"),
                 };
                 redox::write(tty_fd as usize, &packet[1..count])
