@@ -58,8 +58,8 @@ redox-daemon = "0.1.2"
 redox_liner = "0.5.2"
 libredox = "0.0.2"
 redox_termios = "0.1.3"
-redox_event = "0.2"
-redox_users = "0.4.4"
+redox_event = "0.4"
+redox_users = "0.4.6"
 termion = "2.0.3"
 
 [profile.release]
