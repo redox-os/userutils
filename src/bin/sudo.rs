@@ -1,18 +1,19 @@
 extern crate extra;
-extern crate termion;
 extern crate redox_users;
+extern crate termion;
 
 use std::env;
 use std::io::{self, Write};
 use std::os::unix::process::CommandExt;
-use std::process::{Command, exit};
+use std::process::{exit, Command};
 
 use extra::option::OptionalExt;
+use redox_users::{get_uid, All, AllGroups, AllUsers, Config};
 use termion::input::TermRead;
-use redox_users::{get_uid, All, AllUsers, AllGroups, Config};
 
 const MAX_ATTEMPTS: u16 = 3;
-const _MAN_PAGE: &'static str = /* @MANSTART{sudo} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{sudo} */
+    r#"
 NAME
     sudo - execute a command as another user
 
@@ -73,12 +74,15 @@ pub fn main() {
                                 break;
                             } else {
                                 attempts += 1;
-                                eprintln!("sudo: incorrect password ({}/{})", attempts, MAX_ATTEMPTS);
+                                eprintln!(
+                                    "sudo: incorrect password ({}/{})",
+                                    attempts, MAX_ATTEMPTS
+                                );
                                 if attempts >= MAX_ATTEMPTS {
                                     exit(1);
                                 }
                             }
-                        },
+                        }
                         None => {
                             write!(stdout, "\n").unwrap();
                             exit(1);
