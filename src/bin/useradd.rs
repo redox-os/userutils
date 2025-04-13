@@ -1,8 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate redox_users;
-extern crate userutils;
 
 use std::process::exit;
 
@@ -10,7 +7,8 @@ use extra::option::OptionalExt;
 use redox_users::{All, AllGroups, AllUsers, Config, GroupBuilder, UserBuilder};
 use userutils::create_user_dir;
 
-const _MAN_PAGE: &'static str = /* @MANSTART{useradd} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{useradd} */
+    r#"
 NAME
     useradd - add a new user
 
@@ -108,12 +106,14 @@ fn main() {
             -u --uid
             +takes_value
             "Set LOGIN's user id. Positive ineger and must not be in use.")
-    ).get_matches();
+    )
+    .get_matches();
 
     // unwrap is safe because of "+required". clap-rs is cool...
     let login = args.value_of("LOGIN").unwrap();
 
-    let mut sys_users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
+    let mut sys_users =
+        AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
     let mut sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
 
     let uid = match args.value_of("UID") {
@@ -124,13 +124,11 @@ fn main() {
                 exit(1);
             }
             id
-        },
-        None => sys_users
-                    .get_unique_id()
-                    .unwrap_or_else(|| {
-                        eprintln!("useradd: no available uid");
-                        exit(1);
-                    })
+        }
+        None => sys_users.get_unique_id().unwrap_or_else(|| {
+            eprintln!("useradd: no available uid");
+            exit(1);
+        }),
     };
 
     let gid = if args.is_present("NO_USER_GROUP") {
@@ -151,13 +149,11 @@ fn main() {
                     exit(1);
                 }
                 id
-            },
-            None => sys_groups
-                        .get_unique_id()
-                        .unwrap_or_else(|| {
-                            eprintln!("useradd: no available gid");
-                            exit(1);
-                        })
+            }
+            None => sys_groups.get_unique_id().unwrap_or_else(|| {
+                eprintln!("useradd: no available gid");
+                exit(1);
+            }),
         };
         sys_groups
             .add_group(GroupBuilder::new(login).gid(id).user(login))
@@ -168,35 +164,32 @@ fn main() {
         id
     };
 
-    let gecos = args
-        .value_of("COMMENT")
-        .unwrap_or(login);
+    let gecos = args.value_of("COMMENT").unwrap_or(login);
 
     //Ugly way to satisfy the borrow checker...
     let mut sys_homes = String::from(DEFAULT_HOME);
-    let userhome = args
-        .value_of("HOME_DIR")
-        .unwrap_or_else(|| {
-            if args.is_present("CREATE_HOME") {
-                sys_homes.push_str("/");
-                sys_homes.push_str(&login);
-                sys_homes.as_str()
-            } else {
-                "/"
-            }
-        });
+    let userhome = args.value_of("HOME_DIR").unwrap_or_else(|| {
+        if args.is_present("CREATE_HOME") {
+            sys_homes.push_str("/");
+            sys_homes.push_str(&login);
+            sys_homes.as_str()
+        } else {
+            "/"
+        }
+    });
 
-    let shell = args
-        .value_of("SHELL")
-        .unwrap_or(DEFAULT_SHELL);
+    let shell = args.value_of("SHELL").unwrap_or(DEFAULT_SHELL);
 
-    let user = UserBuilder::new(login).uid(uid).gid(gid).name(gecos).home(userhome).shell(shell);
-    sys_users
-        .add_user(user)
-        .unwrap_or_else(|err| {
-            eprintln!("useradd: {}: {}", err, login);
-            exit(1);
-        });
+    let user = UserBuilder::new(login)
+        .uid(uid)
+        .gid(gid)
+        .name(gecos)
+        .home(userhome)
+        .shell(shell);
+    sys_users.add_user(user).unwrap_or_else(|err| {
+        eprintln!("useradd: {}: {}", err, login);
+        exit(1);
+    });
 
     // Make sure to try and create the user/groups before we create
     // their home, that way we get a permissions error that makes

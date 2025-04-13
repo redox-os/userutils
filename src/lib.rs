@@ -16,15 +16,12 @@
 //! - `sudo`: Enables users to execute a command as another user.
 //! - `whoami`: Display effective user ID.
 
-extern crate redox_users;
-extern crate libredox;
-
 use std::io::Result as IoResult;
 
-use redox_users::{auth, All, AllGroups, Result, User, Error};
-use libredox::call::{open, fchown};
+use libredox::call::{fchown, open};
 use libredox::error::Result as SysResult;
-use libredox::flag::{O_CREAT, O_DIRECTORY, O_CLOEXEC};
+use libredox::flag::{O_CLOEXEC, O_CREAT, O_DIRECTORY};
+use redox_users::{All, AllGroups, Error, Result, User, auth};
 
 const DEFAULT_MODE: u16 = 0o700;
 
@@ -41,7 +38,7 @@ impl AllGroupsExt for AllGroups {
         for groupname in new_groups {
             let group = match self.get_mut_by_name(groupname) {
                 Some(group) => group,
-                None => return Err(Error::UserNotFound)
+                None => return Err(Error::UserNotFound),
             };
             group.users.push(login.to_string());
         }
@@ -51,8 +48,7 @@ impl AllGroupsExt for AllGroups {
     /// Remove a user from all groups of which they are a member
     fn remove_user_from_all_groups(&mut self, login: &str) {
         for group in self.iter_mut() {
-            let op_pos = group.users.iter()
-                .position(|username| username == login );
+            let op_pos = group.users.iter().position(|username| username == login);
             if let Some(indx) = op_pos {
                 group.users.remove(indx);
             }
@@ -81,13 +77,14 @@ pub fn spawn_shell(user: &User<auth::Full>) -> IoResult<i32> {
     let mut child = command.spawn()?;
     match child.wait()?.code() {
         Some(code) => Ok(code),
-        None => Ok(1)
+        None => Ok(1),
     }
 }
 
 /// Creates a directory with 700 user:user permissions
 pub fn create_user_dir<T>(user: &User<auth::Full>, dir: T) -> SysResult<()>
-    where T: AsRef<str> + std::convert::AsRef<[u8]>
+where
+    T: AsRef<str> + std::convert::AsRef<[u8]>,
 {
     let fd = open(dir, O_CREAT | O_DIRECTORY | O_CLOEXEC, DEFAULT_MODE)?;
     fchown(fd, user.uid as u32, user.gid as u32)?;

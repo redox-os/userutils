@@ -1,17 +1,15 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate redox_users;
-extern crate userutils;
 
 use std::fs::{remove_dir, rename};
 use std::process::exit;
 
 use extra::option::OptionalExt;
 use redox_users::{All, AllGroups, AllUsers, Config};
-use userutils::{create_user_dir, AllGroupsExt};
+use userutils::{AllGroupsExt, create_user_dir};
 
-const _MAN_PAGE: &'static str = /* @MANSTART{usermod} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{usermod} */
+    r#"
 NAME
     usermod - modify user information
 
@@ -119,32 +117,35 @@ fn main() {
     let login = args.value_of("LOGIN").unwrap();
 
     //TODO: Does not always need shadowfile access
-    let mut sys_users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
+    let mut sys_users =
+        AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
     let mut sys_groups;
 
     if let Some(new_groups) = args.value_of("SET_GROUPS") {
         sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
         sys_groups.remove_user_from_all_groups(login);
-        sys_groups.add_user_to_groups(login, new_groups.split(',').collect()).unwrap_or_exit(1);
+        sys_groups
+            .add_user_to_groups(login, new_groups.split(',').collect())
+            .unwrap_or_exit(1);
         sys_groups.save().unwrap_or_exit(1);
     }
 
     if let Some(new_groups) = args.value_of("APPEND_GROUPS") {
         sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
-        sys_groups.add_user_to_groups(login, new_groups.split(',').collect()).unwrap_or_exit(1);
+        sys_groups
+            .add_user_to_groups(login, new_groups.split(',').collect())
+            .unwrap_or_exit(1);
         sys_groups.save().unwrap_or_exit(1);
     }
 
-    let uid = args
-        .value_of("UID")
-        .map(|uid| {
-            let uid = uid.parse::<usize>().unwrap_or_exit(1);
-            if let Some(_user) = sys_users.get_by_id(uid) {
-                eprintln!("usermod: userid already in use: {}", uid);
-                exit(1);
-            }
-            uid
-        });
+    let uid = args.value_of("UID").map(|uid| {
+        let uid = uid.parse::<usize>().unwrap_or_exit(1);
+        if let Some(_user) = sys_users.get_by_id(uid) {
+            eprintln!("usermod: userid already in use: {}", uid);
+            exit(1);
+        }
+        uid
+    });
 
     {
         let user = sys_users.get_mut_by_name(&login).unwrap_or_else(|| {

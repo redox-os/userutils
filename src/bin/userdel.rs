@@ -1,8 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate redox_users;
-extern crate userutils;
 
 use std::fs::remove_dir;
 use std::process::exit;
@@ -11,7 +8,8 @@ use extra::option::OptionalExt;
 use redox_users::{All, AllGroups, AllUsers, Config};
 use userutils::AllGroupsExt;
 
-const _MAN_PAGE: &'static str =  /* @MANSTART{userdel} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{userdel} */
+    r#"
 NAME
     userdel - modify system files to delete users
 
@@ -44,11 +42,13 @@ fn main() {
         (about: "Removes system users using redox_users")
         (@arg LOGIN: +required "Remove user LOGIN")
         (@arg REMOVE: -r --remove "Remove the user's home and all files and directories inside")
-    ).get_matches();
+    )
+    .get_matches();
 
     let login = args.value_of("LOGIN").unwrap();
 
-    let mut sys_users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
+    let mut sys_users =
+        AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
     let mut sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
     {
         sys_groups.remove_user_from_all_groups(login);

@@ -1,10 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate event;
-extern crate extra;
-extern crate libredox;
-extern crate orbclient;
-extern crate redox_termios;
 
 use std::io::{self, ErrorKind, Stderr};
 use std::process::{Child, Command, Stdio};
@@ -125,13 +120,10 @@ pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
     .expect("getty: failed to create PTY");
 
     if let Ok(winsize_fd) = redox::dup(master, b"winsize") {
-        let _ = redox::write(
-            winsize_fd,
-            &redox_termios::Winsize {
-                ws_row: lines as u16,
-                ws_col: columns as u16,
-            },
-        );
+        let _ = redox::write(winsize_fd, &redox_termios::Winsize {
+            ws_row: lines as u16,
+            ws_col: columns as u16,
+        });
         let _ = redox::close(winsize_fd);
     }
 
@@ -142,12 +134,7 @@ pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
     })
 }
 
-fn daemon(
-    tty_fd: RawFd,
-    clear: bool,
-    contain: bool,
-    stderr: &mut Stderr,
-) {
+fn daemon(tty_fd: RawFd, clear: bool, contain: bool, stderr: &mut Stderr) {
     let (columns, lines) = {
         let mut path = [0; 4096];
         if let Ok(count) = redox::fpath(tty_fd as usize, &mut path) {
@@ -203,12 +190,7 @@ fn daemon(
 
         match command.spawn() {
             Ok(mut process) => {
-                handle(
-                    &mut event_queue,
-                    tty_fd,
-                    master_fd,
-                    &mut process,
-                );
+                handle(&mut event_queue, tty_fd, master_fd, &mut process);
             }
             Err(err) => fail(&format!("getty: failed to execute login: {}", err), stderr),
         }

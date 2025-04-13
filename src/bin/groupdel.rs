@@ -1,12 +1,11 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate redox_users;
 
 use extra::option::OptionalExt;
 use redox_users::{All, AllGroups, Config};
 
-const _MAN_PAGE: &'static str =  /* @MANSTART{groupdel} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{groupdel} */
+    r#"
 NAME
     groupdel - modify system files to delete groups
 
@@ -35,7 +34,8 @@ fn main() {
         (author: "Wesley Hershberger")
         (about: "Removes a group from the system using redox_users")
         (@arg GROUP: +required "Removes group GROUP")
-    ).get_matches();
+    )
+    .get_matches();
 
     let group = matches.value_of("GROUP").unwrap();
 

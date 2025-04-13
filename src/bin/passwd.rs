@@ -1,18 +1,16 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate termion;
-extern crate redox_users;
 
 use std::io;
 use std::io::Write;
 use std::process::exit;
 
 use extra::option::OptionalExt;
+use redox_users::{All, AllUsers, Config, get_uid};
 use termion::input::TermRead;
-use redox_users::{get_uid, All, AllUsers, Config};
 
-const _MAN_PAGE: &'static str = /* @MANSTART{passwd} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{passwd} */
+    r#"
 NAME
     passwd - modify a user's password
 
@@ -52,7 +50,8 @@ fn main() {
         (about: "Set user passwords")
         (@arg LOGIN: "Apply to login. Sets password for current user if not supplied")
         (@arg LOCK: -l --lock "Lock the password for an account (no login)")
-    ).get_matches();
+    )
+    .get_matches();
 
     let uid = get_uid().unwrap_or_exit(1);
     let mut users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
@@ -60,21 +59,21 @@ fn main() {
     {
         let user = match args.value_of("LOGIN") {
             Some(login) => users.get_mut_by_name(login).unwrap_or_else(|| {
-                               eprintln!("passwd: user does not exist: {}", login);
-                               exit(1);
-                           }),
+                eprintln!("passwd: user does not exist: {}", login);
+                exit(1);
+            }),
             None => users.get_mut_by_id(uid).unwrap_or_else(|| {
-                        eprintln!("passwd: you do not exist");
-                        exit(1);
-                    })
+                eprintln!("passwd: you do not exist");
+                exit(1);
+            }),
         };
 
         if args.is_present("LOCK") {
             user.unset_passwd();
         } else if user.uid == uid || uid == 0 {
             let msg = format!("changing password for '{}' \n", user.user);
-            stdout.write_all(&msg.as_bytes()).try(&mut stderr);
-            stdout.flush().try(&mut stderr);
+            stdout.write_all(&msg.as_bytes()).r#try(&mut stderr);
+            stdout.flush().r#try(&mut stderr);
 
             let mut verified = false;
             if user.is_passwd_blank() {
@@ -82,12 +81,12 @@ fn main() {
             } else if user.is_passwd_unset() && uid != 0 {
                 verified = false;
             } else if user.uid == uid || uid != 0 {
-                stdout.write_all(b"current password: ").try(&mut stderr);
-                stdout.flush().try(&mut stderr);
+                stdout.write_all(b"current password: ").r#try(&mut stderr);
+                stdout.flush().r#try(&mut stderr);
 
-                if let Some(password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
-                    stdout.write(b"\n").try(&mut stderr);
-                    stdout.flush().try(&mut stderr);
+                if let Some(password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) {
+                    stdout.write(b"\n").r#try(&mut stderr);
+                    stdout.flush().r#try(&mut stderr);
 
                     verified = user.verify_passwd(&password)
                 }
@@ -96,16 +95,18 @@ fn main() {
             }
 
             if verified {
-                stdout.write_all(b"new password: ").try(&mut stderr);
-                stdout.flush().try(&mut stderr);
+                stdout.write_all(b"new password: ").r#try(&mut stderr);
+                stdout.flush().r#try(&mut stderr);
 
-                if let Some(new_password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
-                    stdout.write(b"\nconfirm password: ").try(&mut stderr);
-                    stdout.flush().try(&mut stderr);
+                if let Some(new_password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) {
+                    stdout.write(b"\nconfirm password: ").r#try(&mut stderr);
+                    stdout.flush().r#try(&mut stderr);
 
-                    if let Some(confirm_password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
-                        stdout.write(b"\n").try(&mut stderr);
-                        stdout.flush().try(&mut stderr);
+                    if let Some(confirm_password) =
+                        stdin.read_passwd(&mut stdout).r#try(&mut stderr)
+                    {
+                        stdout.write(b"\n").r#try(&mut stderr);
+                        stdout.flush().r#try(&mut stderr);
 
                         if new_password == confirm_password {
                             user.set_passwd(&new_password).unwrap_or_exit(1);
@@ -126,7 +127,10 @@ fn main() {
                 exit(1);
             }
         } else {
-            eprintln!("passwd: you do not have permission to set the password of '{}'", user.user);
+            eprintln!(
+                "passwd: you do not have permission to set the password of '{}'",
+                user.user
+            );
             exit(1);
         }
     }
