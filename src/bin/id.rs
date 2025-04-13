@@ -1,15 +1,14 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate redox_users;
 
 use std::env::args;
 use std::process::exit;
 
 use extra::option::OptionalExt;
-use redox_users::{get_egid, get_gid, get_euid, get_uid, All, AllUsers, AllGroups, Config};
+use redox_users::{All, AllGroups, AllUsers, Config, get_egid, get_euid, get_gid, get_uid};
 
-const _MAN_PAGE: &'static str = /* @MANSTART{id} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{id} */
+    r#"
 NAME
     id - display user identity
 
@@ -69,7 +68,7 @@ pub fn main() {
 
     let args = match &*args().nth(0).unwrap_or(String::new()) {
         "whoami" => app.get_matches_from(["id", "-un"].iter()),
-        _ => app.get_matches()
+        _ => app.get_matches(),
     };
 
     // Display the different group IDs (effective and real)
@@ -81,16 +80,17 @@ pub fn main() {
 
         println!("{} {}", egid, gid);
         exit(0);
-   }
+    }
 
-   // Display effective/real process user ID UNIX user name
-   if args.is_present("USER") && args.is_present("NAME") {
+    // Display effective/real process user ID UNIX user name
+    if args.is_present("USER") && args.is_present("NAME") {
         // Did they pass -r? If so, we show the real
         let uid = if args.is_present("REAL") {
             get_uid()
         } else {
             get_euid()
-        }.unwrap_or_exit(1);
+        }
+        .unwrap_or_exit(1);
 
         let users = AllUsers::basic(Config::default()).unwrap_or_exit(1);
         let user = users.get_by_id(uid).unwrap_or_exit(1);
@@ -115,14 +115,15 @@ pub fn main() {
         exit(0);
     }
 
-   // Display effective/real process group ID UNIX group name
-   if args.is_present("GROUP") && args.is_present("NAME") {
+    // Display effective/real process group ID UNIX group name
+    if args.is_present("GROUP") && args.is_present("NAME") {
         // Did they pass -r? If so we show the real one
         let gid = if args.is_present("REAL") {
             get_gid()
         } else {
             get_egid()
-        }.unwrap_or_exit(1);
+        }
+        .unwrap_or_exit(1);
 
         let groups = AllGroups::new(Config::default()).unwrap_or_exit(1);
         let group = groups.get_by_id(gid).unwrap_or_exit(1);

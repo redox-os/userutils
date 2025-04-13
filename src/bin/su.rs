@@ -1,20 +1,17 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate termion;
-extern crate redox_users;
-extern crate userutils;
 
 use std::io::{self, Write};
 use std::process::exit;
 use std::str;
 
 use extra::option::OptionalExt;
+use redox_users::{All, AllUsers, Config, get_uid};
 use termion::input::TermRead;
-use redox_users::{get_uid, All, AllUsers, Config};
 use userutils::spawn_shell;
 
-const _MAN_PAGE: &'static str = /* @MANSTART{su} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{su} */
+    r#"
 NAME
     su - substitute user identity
 
@@ -46,11 +43,10 @@ pub fn main() {
         (author: "Jeremy Soller, Jose Narvaez")
         (about: "substitue user identity")
         (@arg LOGIN: "Login as LOGIN. Default is \'root\'")
-    ).get_matches();
+    )
+    .get_matches();
 
-    let target_user = args
-        .value_of("LOGIN")
-        .unwrap_or("root");
+    let target_user = args.value_of("LOGIN").unwrap_or("root");
 
     let uid = get_uid().unwrap_or_exit(1);
 
@@ -67,7 +63,10 @@ pub fn main() {
         stdout.flush().unwrap_or_exit(1);
 
         // Read the password, reading an empty string if CTRL-d is specified
-        let password = stdin.read_passwd(&mut stdout).try(&mut stderr).unwrap_or(String::new());
+        let password = stdin
+            .read_passwd(&mut stdout)
+            .r#try(&mut stderr)
+            .unwrap_or(String::new());
 
         writeln!(stderr, "\n").unwrap_or_exit(1);
 

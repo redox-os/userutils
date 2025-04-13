@@ -1,14 +1,10 @@
-extern crate extra;
-extern crate redox_users;
-extern crate termion;
-
 use std::env;
 use std::io::{self, Write};
 use std::os::unix::process::CommandExt;
-use std::process::{exit, Command};
+use std::process::{Command, exit};
 
 use extra::option::OptionalExt;
-use redox_users::{get_uid, All, AllGroups, AllUsers, Config};
+use redox_users::{All, AllGroups, AllUsers, Config, get_uid};
 use termion::input::TermRead;
 
 const MAX_ATTEMPTS: u16 = 3;
@@ -35,11 +31,6 @@ AUTHOR
 "#; /* @MANEND */
 
 pub fn main() {
-    let stdin = io::stdin();
-    let mut stdin = stdin.lock();
-    let stdout = io::stdout();
-    let mut stdout = stdout.lock();
-
     let mut args = env::args().skip(1);
     let cmd = args.next().unwrap_or_else(|| {
         eprintln!("sudo: no command provided");
@@ -77,12 +68,11 @@ pub fn main() {
 
     loop {
         print!("[sudo] password for {}: ", user.user);
-        let _ = stdout.flush();
+        let _ = io::stdout().flush();
 
-        match stdin.read_passwd(&mut stdout).unwrap() {
+        match io::stdin().read_passwd(&mut io::stdout()).unwrap() {
             Some(password) => {
-                write!(stdout, "\n").unwrap();
-                let _ = stdout.flush();
+                println!();
 
                 if user.verify_passwd(&password) {
                     break;
@@ -95,7 +85,7 @@ pub fn main() {
                 }
             }
             None => {
-                write!(stdout, "\n").unwrap();
+                println!();
                 exit(1);
             }
         }
