@@ -6,10 +6,11 @@ use std::io::Write;
 use std::process::exit;
 
 use extra::option::OptionalExt;
+use redox_users::{All, AllUsers, Config, get_uid};
 use termion::input::TermRead;
-use redox_users::{get_uid, All, AllUsers, Config};
 
-const _MAN_PAGE: &'static str = /* @MANSTART{passwd} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{passwd} */
+    r#"
 NAME
     passwd - modify a user's password
 
@@ -49,7 +50,8 @@ fn main() {
         (about: "Set user passwords")
         (@arg LOGIN: "Apply to login. Sets password for current user if not supplied")
         (@arg LOCK: -l --lock "Lock the password for an account (no login)")
-    ).get_matches();
+    )
+    .get_matches();
 
     let uid = get_uid().unwrap_or_exit(1);
     let mut users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
@@ -57,13 +59,13 @@ fn main() {
     {
         let user = match args.value_of("LOGIN") {
             Some(login) => users.get_mut_by_name(login).unwrap_or_else(|| {
-                               eprintln!("passwd: user does not exist: {}", login);
-                               exit(1);
-                           }),
+                eprintln!("passwd: user does not exist: {}", login);
+                exit(1);
+            }),
             None => users.get_mut_by_id(uid).unwrap_or_else(|| {
-                        eprintln!("passwd: you do not exist");
-                        exit(1);
-                    })
+                eprintln!("passwd: you do not exist");
+                exit(1);
+            }),
         };
 
         if args.is_present("LOCK") {
@@ -100,7 +102,9 @@ fn main() {
                     stdout.write(b"\nconfirm password: ").r#try(&mut stderr);
                     stdout.flush().r#try(&mut stderr);
 
-                    if let Some(confirm_password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) {
+                    if let Some(confirm_password) =
+                        stdin.read_passwd(&mut stdout).r#try(&mut stderr)
+                    {
                         stdout.write(b"\n").r#try(&mut stderr);
                         stdout.flush().r#try(&mut stderr);
 
@@ -123,7 +127,10 @@ fn main() {
                 exit(1);
             }
         } else {
-            eprintln!("passwd: you do not have permission to set the password of '{}'", user.user);
+            eprintln!(
+                "passwd: you do not have permission to set the password of '{}'",
+                user.user
+            );
             exit(1);
         }
     }

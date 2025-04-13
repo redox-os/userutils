@@ -7,7 +7,8 @@ use std::process::exit;
 
 use redox_users::{All, AllGroups, Config, Error, GroupBuilder};
 
-const _MAN_PAGE: &'static str = /* @MANSTART{groupadd} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{groupadd} */
+    r#"
 NAME
     groupadd - add a user group
 
@@ -44,7 +45,8 @@ fn main() {
         (@arg GROUP: +required  "Add group GROUP")
         (@arg FORCE: -f --force "Force the status of the program to be 0 even if the group exists")
         (@arg GID:   -g --gid   +takes_value "Group id. Positive integer and must not be in use")
-    ).get_matches();
+    )
+    .get_matches();
 
     let mut sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
 
@@ -58,11 +60,11 @@ fn main() {
                 exit(1);
             }
             id
-        },
+        }
         None => sys_groups.get_unique_id().unwrap_or_else(|| {
-                    eprintln!("groupadd: no available gid");
-                    exit(1);
-                })
+            eprintln!("groupadd: no available gid");
+            exit(1);
+        }),
     };
 
     let group = GroupBuilder::new(groupname).gid(gid);
@@ -70,7 +72,7 @@ fn main() {
         Ok(_) => (),
         Err(Error::GroupAlreadyExists) if args.is_present("FORCE") => {
             exit(0);
-        },
+        }
         Err(err) => {
             eprintln!("groupadd: {}", err);
             exit(1);

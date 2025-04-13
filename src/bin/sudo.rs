@@ -1,10 +1,10 @@
 use std::env;
 use std::io::{self, Write};
 use std::os::unix::process::CommandExt;
-use std::process::{exit, Command};
+use std::process::{Command, exit};
 
 use extra::option::OptionalExt;
-use redox_users::{get_uid, All, AllGroups, AllUsers, Config};
+use redox_users::{All, AllGroups, AllUsers, Config, get_uid};
 use termion::input::TermRead;
 
 const MAX_ATTEMPTS: u16 = 3;

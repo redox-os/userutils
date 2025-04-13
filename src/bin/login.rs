@@ -6,11 +6,12 @@ use std::io::{self, Write};
 use std::str;
 
 use extra::option::OptionalExt;
-use termion::input::TermRead;
 use redox_users::{All, AllUsers, Config};
+use termion::input::TermRead;
 use userutils::spawn_shell;
 
-const _MAN_PAGE: &'static str = /* @MANSTART{login} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{login} */
+    r#"
 NAME
     login - log into the computer
 
@@ -39,7 +40,8 @@ pub fn main() {
     let _args = clap_app!(login =>
         (author: "Jeremy Soller, Jose Narvaez")
         (about: "Login as a user")
-    ).get_matches();
+    )
+    .get_matches();
 
     if let Ok(mut issue) = File::open(ISSUE_FILE) {
         io::copy(&mut issue, &mut stdout).r#try(&mut stderr);
@@ -66,7 +68,7 @@ pub fn main() {
                     stdout.write(b"\n").r#try(&mut stderr);
                     stdout.flush().r#try(&mut stderr);
                     continue;
-                },
+                }
                 Some(user) => {
                     if user.is_passwd_blank() {
                         if let Ok(mut motd) = File::open(MOTD_FILE) {
@@ -78,7 +80,9 @@ pub fn main() {
                         break;
                     }
 
-                    stdout.write_all(b"\x1B[1mpassword:\x1B[0m ") .r#try(&mut stderr);
+                    stdout
+                        .write_all(b"\x1B[1mpassword:\x1B[0m ")
+                        .r#try(&mut stderr);
                     stdout.flush().r#try(&mut stderr);
                     if let Some(password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) {
                         stdout.write(b"\n").r#try(&mut stderr);

@@ -6,7 +6,8 @@ use std::process::exit;
 use extra::option::OptionalExt;
 use redox_users::{All, AllGroups, AllUsers, Config};
 
-const _MAN_PAGE: &'static str =  /* @MANSTART{groupmod} */ r#"
+const _MAN_PAGE: &'static str = /* @MANSTART{groupmod} */
+    r#"
 NAME
     groupmod - modify group information
 
@@ -45,23 +46,23 @@ fn main() {
         (@arg GROUP:          +required    "Modify GROUP")
         (@arg GID:  -g --gid  +takes_value "Change GROUP's group id. See man page for details")
         (@arg NAME: -n --name +takes_value "Change GROUP's name")
-    ).get_matches();
+    )
+    .get_matches();
 
     let groupname = args.value_of("GROUP").unwrap();
 
     let mut sys_groups = AllGroups::new(Config::default().writeable(true)).unwrap_or_exit(1);
     {
-        let group = sys_groups
-            .get_mut_by_name(groupname)
-            .unwrap_or_else(|| {
-                eprintln!("groupmod: group not found: {}", groupname);
-                exit(1);
-            });
+        let group = sys_groups.get_mut_by_name(groupname).unwrap_or_else(|| {
+            eprintln!("groupmod: group not found: {}", groupname);
+            exit(1);
+        });
 
         if let Some(gid) = args.value_of("GID") {
             let gid = gid.parse::<usize>().unwrap_or_exit(1);
             // Update users
-            let mut sys_users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
+            let mut sys_users =
+                AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
             for user in sys_users.iter_mut() {
                 if user.gid == group.gid {
                     user.gid = gid;
