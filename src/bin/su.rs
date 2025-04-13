@@ -1,9 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate termion;
-extern crate redox_users;
-extern crate userutils;
 
 use std::io::{self, Write};
 use std::process::exit;
@@ -67,7 +63,7 @@ pub fn main() {
         stdout.flush().unwrap_or_exit(1);
 
         // Read the password, reading an empty string if CTRL-d is specified
-        let password = stdin.read_passwd(&mut stdout).try(&mut stderr).unwrap_or(String::new());
+        let password = stdin.read_passwd(&mut stdout).r#try(&mut stderr).unwrap_or(String::new());
 
         writeln!(stderr, "\n").unwrap_or_exit(1);
 

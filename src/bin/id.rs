@@ -1,7 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate redox_users;
 
 use std::env::args;
 use std::process::exit;

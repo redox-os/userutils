@@ -1,8 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate redox_users;
-extern crate userutils;
 
 use std::fs::remove_dir;
 use std::process::exit;

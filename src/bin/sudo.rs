@@ -1,7 +1,3 @@
-extern crate extra;
-extern crate redox_users;
-extern crate termion;
-
 use std::env;
 use std::io::{self, Write};
 use std::os::unix::process::CommandExt;

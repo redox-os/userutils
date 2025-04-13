@@ -1,7 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate redox_users;
 
 use extra::option::OptionalExt;
 

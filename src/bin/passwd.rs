@@ -1,8 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate extra;
-extern crate termion;
-extern crate redox_users;
 
 use std::io;
 use std::io::Write;
@@ -73,8 +70,8 @@ fn main() {
             user.unset_passwd();
         } else if user.uid == uid || uid == 0 {
             let msg = format!("changing password for '{}' \n", user.user);
-            stdout.write_all(&msg.as_bytes()).try(&mut stderr);
-            stdout.flush().try(&mut stderr);
+            stdout.write_all(&msg.as_bytes()).r#try(&mut stderr);
+            stdout.flush().r#try(&mut stderr);
 
             let mut verified = false;
             if user.is_passwd_blank() {
@@ -82,12 +79,12 @@ fn main() {
             } else if user.is_passwd_unset() && uid != 0 {
                 verified = false;
             } else if user.uid == uid || uid != 0 {
-                stdout.write_all(b"current password: ").try(&mut stderr);
-                stdout.flush().try(&mut stderr);
+                stdout.write_all(b"current password: ").r#try(&mut stderr);
+                stdout.flush().r#try(&mut stderr);
 
-                if let Some(password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
-                    stdout.write(b"\n").try(&mut stderr);
-                    stdout.flush().try(&mut stderr);
+                if let Some(password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) {
+                    stdout.write(b"\n").r#try(&mut stderr);
+                    stdout.flush().r#try(&mut stderr);
 
                     verified = user.verify_passwd(&password)
                 }
@@ -96,16 +93,16 @@ fn main() {
             }
 
             if verified {
-                stdout.write_all(b"new password: ").try(&mut stderr);
-                stdout.flush().try(&mut stderr);
+                stdout.write_all(b"new password: ").r#try(&mut stderr);
+                stdout.flush().r#try(&mut stderr);
 
-                if let Some(new_password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
-                    stdout.write(b"\nconfirm password: ").try(&mut stderr);
-                    stdout.flush().try(&mut stderr);
+                if let Some(new_password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) {
+                    stdout.write(b"\nconfirm password: ").r#try(&mut stderr);
+                    stdout.flush().r#try(&mut stderr);
 
-                    if let Some(confirm_password) = stdin.read_passwd(&mut stdout).try(&mut stderr) {
-                        stdout.write(b"\n").try(&mut stderr);
-                        stdout.flush().try(&mut stderr);
+                    if let Some(confirm_password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) {
+                        stdout.write(b"\n").r#try(&mut stderr);
+                        stdout.flush().r#try(&mut stderr);
 
                         if new_password == confirm_password {
                             user.set_passwd(&new_password).unwrap_or_exit(1);

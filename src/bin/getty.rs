@@ -1,10 +1,5 @@
 #[macro_use]
 extern crate clap;
-extern crate event;
-extern crate extra;
-extern crate libredox;
-extern crate orbclient;
-extern crate redox_termios;
 
 use std::io::{self, ErrorKind, Stderr};
 use std::process::{Child, Command, Stdio};

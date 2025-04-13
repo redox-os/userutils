@@ -16,9 +16,6 @@
 //! - `sudo`: Enables users to execute a command as another user.
 //! - `whoami`: Display effective user ID.
 
-extern crate redox_users;
-extern crate libredox;
-
 use std::io::Result as IoResult;
 
 use redox_users::{auth, All, AllGroups, Result, User, Error};
