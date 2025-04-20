@@ -71,7 +71,7 @@ impl AllGroupsExt for AllGroups {
 /// let user = sys_users.get_by_name("goyox86");
 /// spawn_shell(user).unwrap();
 /// ```
-pub fn spawn_shell(user: &User<auth::Full>) -> IoResult<i32> {
+pub fn spawn_shell<T: Default>(user: &User<T>) -> IoResult<i32> {
     let mut command = user.shell_cmd();
 
     let mut child = command.spawn()?;
