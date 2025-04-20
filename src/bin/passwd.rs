@@ -6,6 +6,7 @@ use std::io::Write;
 use std::process::exit;
 
 use extra::option::OptionalExt;
+use libc::{EPERM, O_CLOEXEC};
 use redox_users::{All, AllUsers, Config, get_uid};
 use termion::input::TermRead;
 
@@ -77,20 +78,30 @@ fn main() {
     }
 
     let uid = get_uid().unwrap_or_exit(1);
-    let mut users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
 
-    let user = match args.value_of("LOGIN") {
-        Some(login) => users.get_mut_by_name(login).unwrap_or_else(|| {
-            eprintln!("passwd: user does not exist: {}", login);
-            exit(1);
-        }),
-        None => users.get_mut_by_id(uid).unwrap_or_else(|| {
-            eprintln!("passwd: you do not exist");
-            exit(1);
-        }),
-    };
+    if uid == 0 {
+        let mut users =
+            AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
 
-    if user.uid != uid && uid != 0 {
+        let user = find_user(&args, &mut users);
+
+        let msg = format!("changing password for '{}' \n", user.user);
+        stdout.write_all(&msg.as_bytes()).r#try(&mut stderr);
+        stdout.flush().r#try(&mut stderr);
+
+        let new_password = ask_new_password(stdin, stdout, stderr);
+
+        user.set_passwd(&new_password).unwrap_or_exit(1);
+        users.save().unwrap_or_exit(1);
+
+        return;
+    }
+
+    let mut users = AllUsers::basic(Config::default()).unwrap_or_exit(1);
+
+    let user = find_user(&args, &mut users);
+
+    if user.uid != uid {
         eprintln!(
             "passwd: you do not have permission to set the password of '{}'",
             user.user
@@ -102,30 +113,64 @@ fn main() {
     stdout.write_all(&msg.as_bytes()).r#try(&mut stderr);
     stdout.flush().r#try(&mut stderr);
 
-    let mut verified = false;
-    if user.is_passwd_blank() {
-        verified = true;
-    } else if user.is_passwd_unset() && uid != 0 {
-        verified = false;
-    } else if user.uid == uid || uid != 0 {
-        stdout.write_all(b"current password: ").r#try(&mut stderr);
+    drop(users); // Unlock /etc/passwd
+
+    stdout.write_all(b"current password: ").r#try(&mut stderr);
+    stdout.flush().r#try(&mut stderr);
+
+    let file = libredox::call::open("/scheme/sudo/passwd", O_CLOEXEC, 0).unwrap();
+
+    if let Some(password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) {
+        stdout.write(b"\n").r#try(&mut stderr);
         stdout.flush().r#try(&mut stderr);
 
-        if let Some(password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) {
-            stdout.write(b"\n").r#try(&mut stderr);
-            stdout.flush().r#try(&mut stderr);
-
-            verified = user.verify_passwd(&password)
+        match libredox::call::write(file, password.as_bytes()) {
+            Ok(_) => {}
+            Err(err) if err.errno() == EPERM => {
+                eprintln!("passwd: incorrect current password");
+                exit(1);
+            }
+            Err(err) => panic!("{err}"),
         }
     } else {
-        verified = true;
-    }
-
-    if !verified {
         eprintln!("passwd: incorrect current password");
         exit(1);
     }
 
+    let new_password = ask_new_password(stdin, stdout, stderr);
+
+    match libredox::call::write(file, new_password.as_bytes()) {
+        Ok(_) => {}
+        Err(err) if err.errno() == EPERM => {
+            eprintln!("passwd: invalid new password");
+            exit(1);
+        }
+        Err(err) => panic!("{err}"),
+    }
+}
+
+fn find_user<'a, T: Default>(
+    args: &clap::ArgMatches<'_>,
+    users: &'a mut AllUsers<T>,
+) -> &'a mut redox_users::User<T> {
+    let uid = get_uid().unwrap_or_exit(1);
+    match args.value_of("LOGIN") {
+        Some(login) => users.get_mut_by_name(login).unwrap_or_else(|| {
+            eprintln!("passwd: user does not exist: {}", login);
+            exit(1);
+        }),
+        None => users.get_mut_by_id(uid).unwrap_or_else(|| {
+            eprintln!("passwd: you do not exist");
+            exit(1);
+        }),
+    }
+}
+
+fn ask_new_password(
+    mut stdin: io::StdinLock<'_>,
+    mut stdout: io::StdoutLock<'_>,
+    mut stderr: io::Stderr,
+) -> String {
     stdout.write_all(b"new password: ").r#try(&mut stderr);
     stdout.flush().r#try(&mut stderr);
     let Some(new_password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) else {
@@ -147,7 +192,5 @@ fn main() {
         eprintln!("passwd: new password does not match confirm password");
         exit(1);
     }
-
-    user.set_passwd(&new_password).unwrap_or_exit(1);
-    users.save().unwrap_or_exit(1);
+    new_password
 }
