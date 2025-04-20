@@ -42,7 +42,7 @@ AUTHOR
     Written by Jeremy Soller, Jose Narvaez, bjorn3.
 "#; /* @MANEND */
 
-pub fn main() {
+fn main() {
     if env::args().nth(1).as_deref() == Some("--daemon") {
         daemon_main();
     }
@@ -150,20 +150,21 @@ struct Scheme {
 }
 enum Handle {
     AwaitingPassword { uid: u32 },
+    AwaitingRootPassword,
     AwaitingContextFd,
     Placeholder,
 }
 
 impl SchemeSync for Scheme {
     fn open(&mut self, path: &str, _flags: usize, ctx: &CallerCtx) -> Result<OpenResult> {
-        // Path must be empty
-        if path.trim_start_matches('/') != "" {
-            return Err(Error::new(ENOENT));
-        }
         let fd = self.next_fd;
         self.next_fd = self.next_fd.checked_add(1).ok_or(Error::new(EMFILE))?;
-        self.handles
-            .insert(fd, Handle::AwaitingPassword { uid: ctx.uid });
+        let handle = match path {
+            "" => Handle::AwaitingPassword { uid: ctx.uid },
+            "su" => Handle::AwaitingRootPassword,
+            _ => return Err(Error::new(ENOENT)),
+        };
+        self.handles.insert(fd, handle);
 
         Ok(OpenResult::ThisScheme {
             number: fd,
@@ -202,6 +203,18 @@ impl SchemeSync for Scheme {
                             return Err(Error::new(EPERM));
                         }
                     }
+                }
+            }
+            Handle::AwaitingRootPassword => {
+                let users = AllUsers::authenticator(Config::default()).unwrap_or_exit(1);
+                let user = users.get_by_id(0).unwrap_or_exit(1);
+
+                let password = validate_utf8(buf)?;
+                if user.verify_passwd(&password) {
+                    *handle = Handle::AwaitingContextFd
+                } else {
+                    *handle = Handle::AwaitingRootPassword;
+                    return Err(Error::new(EPERM));
                 }
             }
             Handle::AwaitingContextFd => {
