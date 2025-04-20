@@ -51,6 +51,31 @@ fn main() {
     )
     .get_matches();
 
+    if args.is_present("LOCK") {
+        if get_uid().unwrap_or_exit(1) != 0 {
+            eprintln!("passwd: only root is allowed to lock accounts");
+            exit(1);
+        }
+
+        let mut users =
+            AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
+
+        let Some(login) = args.value_of("LOGIN") else {
+            eprintln!("passwd: no account specified to lock");
+            exit(1);
+        };
+
+        let user = users.get_mut_by_name(login).unwrap_or_else(|| {
+            eprintln!("passwd: user does not exist: {}", login);
+            exit(1);
+        });
+
+        user.unset_passwd();
+        users.save().unwrap_or_exit(1);
+
+        return;
+    }
+
     let uid = get_uid().unwrap_or_exit(1);
     let mut users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
 
@@ -64,12 +89,6 @@ fn main() {
             exit(1);
         }),
     };
-
-    if args.is_present("LOCK") {
-        user.unset_passwd();
-        users.save().unwrap_or_exit(1);
-        return;
-    }
 
     if user.uid != uid && uid != 0 {
         eprintln!(
