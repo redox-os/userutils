@@ -126,6 +126,17 @@ fn main() {
         exit(1);
     }
 
+    let new_password = ask_new_password(stdin, stdout, stderr);
+
+    user.set_passwd(&new_password).unwrap_or_exit(1);
+    users.save().unwrap_or_exit(1);
+}
+
+fn ask_new_password(
+    mut stdin: io::StdinLock<'_>,
+    mut stdout: io::StdoutLock<'_>,
+    mut stderr: io::Stderr,
+) -> String {
     stdout.write_all(b"new password: ").r#try(&mut stderr);
     stdout.flush().r#try(&mut stderr);
     let Some(new_password) = stdin.read_passwd(&mut stdout).r#try(&mut stderr) else {
@@ -147,7 +158,5 @@ fn main() {
         eprintln!("passwd: new password does not match confirm password");
         exit(1);
     }
-
-    user.set_passwd(&new_password).unwrap_or_exit(1);
-    users.save().unwrap_or_exit(1);
+    new_password
 }
