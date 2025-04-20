@@ -152,6 +152,10 @@ enum Handle {
     AwaitingPassword { uid: u32 },
     AwaitingRootPassword,
     AwaitingContextFd,
+
+    AwaitingPasswordForPasswd { uid: u32 },
+    AwaitingNewPassword { uid: u32 },
+
     Placeholder,
 }
 
@@ -162,6 +166,7 @@ impl SchemeSync for Scheme {
         let handle = match path {
             "" => Handle::AwaitingPassword { uid: ctx.uid },
             "su" => Handle::AwaitingRootPassword,
+            "passwd" => Handle::AwaitingPasswordForPasswd { uid: ctx.uid },
             _ => return Err(Error::new(ENOENT)),
         };
         self.handles.insert(fd, handle);
@@ -220,6 +225,36 @@ impl SchemeSync for Scheme {
             Handle::AwaitingContextFd => {
                 *handle = Handle::AwaitingContextFd;
                 return Err(Error::new(EINVAL));
+            }
+
+            Handle::AwaitingPasswordForPasswd { uid } => {
+                let users =
+                    AllUsers::authenticator(Config::default()).map_err(|_| Error::new(ENOLCK))?;
+                let user = users.get_by_id(uid as usize).ok_or(Error::new(EEXIST))?;
+
+                let password = validate_utf8(buf)?;
+                if user.verify_passwd(&password) {
+                    *handle = Handle::AwaitingNewPassword { uid }
+                } else {
+                    *handle = Handle::AwaitingPasswordForPasswd { uid };
+                    return Err(Error::new(EPERM));
+                }
+            }
+            Handle::AwaitingNewPassword { uid } => {
+                let mut users = AllUsers::authenticator(Config::default().writeable(true))
+                    .map_err(|_| Error::new(ENOLCK))?;
+                let user = users
+                    .get_mut_by_id(uid as usize)
+                    .ok_or(Error::new(EEXIST))?;
+
+                let new_password = validate_utf8(buf)?;
+                if user.set_passwd(&new_password).is_ok() {
+                    users.save().map_err(|_| Error::new(ENOLCK))?;
+                    *handle = Handle::Placeholder
+                } else {
+                    *handle = Handle::AwaitingNewPassword { uid };
+                    return Err(Error::new(EPERM));
+                }
             }
 
             Handle::Placeholder => {
