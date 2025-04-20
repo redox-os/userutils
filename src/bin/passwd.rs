@@ -103,11 +103,13 @@ fn main() {
     stdout.flush().r#try(&mut stderr);
 
     let mut verified = false;
-    if user.is_passwd_blank() {
+    if uid == 0 {
         verified = true;
-    } else if user.is_passwd_unset() && uid != 0 {
+    } else if user.is_passwd_blank() {
+        verified = true;
+    } else if user.is_passwd_unset() {
         verified = false;
-    } else if user.uid == uid || uid != 0 {
+    } else {
         stdout.write_all(b"current password: ").r#try(&mut stderr);
         stdout.flush().r#try(&mut stderr);
 
@@ -117,8 +119,6 @@ fn main() {
 
             verified = user.verify_passwd(&password)
         }
-    } else {
-        verified = true;
     }
 
     if !verified {
