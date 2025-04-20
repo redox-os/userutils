@@ -114,6 +114,11 @@ version = "0.1.0"
 source = "git+https://gitlab.redox-os.org/redox-os/libextra.git#cf213969493db8667052a591e32a1e26d43c4234"
 
 [[package]]
+name = "generic-rt"
+version = "0.1.0"
+source = "git+https://gitlab.redox-os.org/redox-os/relibc#a30f13ee9b560f30cbfb41349b056d9b078862ef"
+
+[[package]]
 name = "getrandom"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -122,6 +127,17 @@ dependencies = [
  "cfg-if",
  "libc",
  "wasi",
+]
+
+[[package]]
+name = "goblin"
+version = "0.7.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f27c1b4369c2cd341b5de549380158b105a04c331be5db9110eef7b6d2742134"
+dependencies = [
+ "log",
+ "plain",
+ "scroll",
 ]
 
 [[package]]
@@ -166,6 +182,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "log"
+version = "0.4.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
+
+[[package]]
 name = "numtoa"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -182,6 +204,12 @@ dependencies = [
  "sdl2",
  "sdl2-sys",
 ]
+
+[[package]]
+name = "plain"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
 
 [[package]]
 name = "proc-macro2"
@@ -209,6 +237,18 @@ checksum = "7fbdeffdb03cf2961b211a2023e683d71f2c225ea93404da5dc34b0dc94f0341"
 dependencies = [
  "libc",
  "libredox",
+]
+
+[[package]]
+name = "redox-rt"
+version = "0.1.0"
+source = "git+https://gitlab.redox-os.org/redox-os/relibc#a30f13ee9b560f30cbfb41349b056d9b078862ef"
+dependencies = [
+ "bitflags 2.6.0",
+ "generic-rt",
+ "goblin",
+ "plain",
+ "redox_syscall",
 ]
 
 [[package]]
@@ -247,8 +287,7 @@ dependencies = [
 [[package]]
 name = "redox_syscall"
 version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2f103c6d277498fbceb16e84d317e2a400f160f46904d5f5410848c829511a3"
+source = "git+https://gitlab.redox-os.org/redox-os/syscall.git#8f646a63ac9c3aa532a37ddfdc136ec19878f0d6"
 dependencies = [
  "bitflags 2.6.0",
 ]
@@ -282,6 +321,26 @@ dependencies = [
  "blake2b_simd",
  "constant_time_eq",
  "crossbeam-utils",
+]
+
+[[package]]
+name = "scroll"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04c565b551bafbef4157586fa379538366e4385d42082f255bfd96e4fe8519da"
+dependencies = [
+ "scroll_derive",
+]
+
+[[package]]
+name = "scroll_derive"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1db149f81d46d2deba7cd3c50772474707729550221e69588478ebf9ada425ae"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -395,7 +454,9 @@ dependencies = [
  "libc",
  "libredox",
  "orbclient",
+ "plain",
  "redox-daemon",
+ "redox-rt",
  "redox-scheme",
  "redox_event",
  "redox_liner",

@@ -7,14 +7,16 @@ use std::process::{Command, exit};
 
 use extra::option::OptionalExt;
 use libredox::flag::O_CLOEXEC;
+use redox_rt::protocol::ProcCall;
+use redox_rt::sys::proc_call;
 use redox_scheme::scheme::SchemeSync;
 use redox_scheme::{
     CallerCtx, OpenResult, RequestKind, Response, SendFdRequest, SignalBehavior, Socket,
 };
 use redox_users::{All, AllGroups, AllUsers, Config, get_uid};
-use syscall::error::*;
 use syscall::flag::*;
 use syscall::schemev2::NewFdFlags;
+use syscall::{dup, error::*};
 use termion::input::TermRead;
 
 const MAX_ATTEMPTS: u16 = 3;
@@ -94,9 +96,13 @@ pub fn main() {
         }
     }
 
+    // FIXME move to libredox
+    unsafe extern "C" {
+        safe fn redox_cur_procfd_v0() -> usize;
+    }
+
     // Elevate privileges of our own process with help from the sudo daemon
-    let self_proc = syscall::open("/scheme/thisproc/current/open_via_dup", 0).unwrap();
-    syscall::sendfd(file, self_proc, 0, 0).unwrap();
+    syscall::sendfd(file, dup(redox_cur_procfd_v0(), &[]).unwrap(), 0, 0).unwrap();
 
     run_command_as_root(&cmd, &args.collect());
 }
@@ -220,28 +226,25 @@ impl Scheme {
         let handle = self.handles.get_mut(&req.id()).ok_or(Error::new(EBADF))?;
         match std::mem::replace(handle, Handle::Placeholder) {
             Handle::AwaitingContextFd => {
-                let mut context_file = usize::MAX;
-                req.obtain_fd(socket, FobtainFdFlags::empty(), Err(&mut context_file))?;
-                let context_file = unsafe { OwnedFd::from_raw_fd(context_file as RawFd) };
+                let mut proc_fd = usize::MAX;
+                req.obtain_fd(socket, FobtainFdFlags::empty(), Err(&mut proc_fd))?;
+                let proc_fd = unsafe { OwnedFd::from_raw_fd(proc_fd as RawFd) };
 
-                let context_uid_fd = unsafe {
-                    OwnedFd::from_raw_fd(
-                        syscall::dup(context_file.as_raw_fd() as usize, b"uid")? as RawFd
-                    )
-                };
-                let context_gid_fd = unsafe {
-                    OwnedFd::from_raw_fd(
-                        syscall::dup(context_file.as_raw_fd() as usize, b"gid")? as RawFd
-                    )
-                };
+                let [ruid, euid, suid] = [0, 0, 0];
+                let [rgid, egid, sgid] = [0, 0, 0];
+                let mut payload = [0; size_of::<u32>() * 6];
+                plain::slice_from_mut_bytes(&mut payload)
+                    .unwrap()
+                    .copy_from_slice(&[ruid, euid, suid, rgid, egid, sgid]);
 
-                // The caller was previously authenticated as member of the sudo group. Allow it to
-                // elevate privileges of a single process (likely itself).
-                syscall::write(context_uid_fd.as_raw_fd() as usize, b"0")
-                    .map_err(|_| Error::new(EIO))?;
-
-                syscall::write(context_gid_fd.as_raw_fd() as usize, b"0")
-                    .map_err(|_| Error::new(EIO))?;
+                if let Err(err) = proc_call(
+                    proc_fd.as_raw_fd() as usize,
+                    &mut payload,
+                    CallFlags::empty(),
+                    &[ProcCall::SetResugid as u64],
+                ) {
+                    eprintln!("failed to setresugid: {err}");
+                }
             }
             old => {
                 *handle = old;
