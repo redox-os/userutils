@@ -79,16 +79,7 @@ fn main() {
     let uid = get_uid().unwrap_or_exit(1);
     let mut users = AllUsers::authenticator(Config::default().writeable(true)).unwrap_or_exit(1);
 
-    let user = match args.value_of("LOGIN") {
-        Some(login) => users.get_mut_by_name(login).unwrap_or_else(|| {
-            eprintln!("passwd: user does not exist: {}", login);
-            exit(1);
-        }),
-        None => users.get_mut_by_id(uid).unwrap_or_else(|| {
-            eprintln!("passwd: you do not exist");
-            exit(1);
-        }),
-    };
+    let user = find_user(&args, &mut users);
 
     if user.uid != uid && uid != 0 {
         eprintln!(
@@ -130,6 +121,23 @@ fn main() {
 
     user.set_passwd(&new_password).unwrap_or_exit(1);
     users.save().unwrap_or_exit(1);
+}
+
+fn find_user<'a, T: Default>(
+    args: &clap::ArgMatches<'_>,
+    users: &'a mut AllUsers<T>,
+) -> &'a mut redox_users::User<T> {
+    let uid = get_uid().unwrap_or_exit(1);
+    match args.value_of("LOGIN") {
+        Some(login) => users.get_mut_by_name(login).unwrap_or_else(|| {
+            eprintln!("passwd: user does not exist: {}", login);
+            exit(1);
+        }),
+        None => users.get_mut_by_id(uid).unwrap_or_else(|| {
+            eprintln!("passwd: you do not exist");
+            exit(1);
+        }),
+    }
 }
 
 fn ask_new_password(
