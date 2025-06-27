@@ -6,7 +6,7 @@ use std::process::exit;
 use std::str;
 
 use extra::option::OptionalExt;
-use libc::O_CLOEXEC;
+use libredox::flag::O_CLOEXEC;
 use redox_users::{All, AllUsers, Config, get_uid};
 use syscall::EPERM;
 use termion::input::TermRead;
