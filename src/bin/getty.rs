@@ -120,10 +120,13 @@ pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
     .expect("getty: failed to create PTY");
 
     if let Ok(winsize_fd) = redox::dup(master, b"winsize") {
-        let _ = redox::write(winsize_fd, &redox_termios::Winsize {
-            ws_row: lines as u16,
-            ws_col: columns as u16,
-        });
+        let _ = redox::write(
+            winsize_fd,
+            &redox_termios::Winsize {
+                ws_row: lines as u16,
+                ws_col: columns as u16,
+            },
+        );
         let _ = redox::close(winsize_fd);
     }
 
@@ -235,15 +238,5 @@ pub fn main() {
         ),
     };
 
-    redox_daemon::Daemon::new(|d| {
-        d.ready().expect("getty: failed to notify ");
-        daemon(tty_fd as RawFd, clear, contain, &mut stderr);
-        std::process::exit(0);
-    })
-    .unwrap_or_else(|err| {
-        fail(
-            &format!("getty: failed to fork login: {}", err),
-            &mut stderr,
-        )
-    });
+    daemon(tty_fd as RawFd, clear, contain, &mut stderr);
 }

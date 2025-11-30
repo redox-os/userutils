@@ -304,42 +304,35 @@ impl Scheme {
 }
 
 fn daemon_main() -> ! {
-    redox_daemon::Daemon::new(move |daemon| {
-        // TODO: Linux kernel audit-like logging?
-        let socket = Socket::create("sudo").expect("failed to open scheme socket");
+    // TODO: Linux kernel audit-like logging?
+    let socket = Socket::create("sudo").expect("failed to open scheme socket");
 
-        let mut scheme = Scheme {
-            next_fd: 1,
-            handles: HashMap::new(),
+    let mut scheme = Scheme {
+        next_fd: 1,
+        handles: HashMap::new(),
+    };
+
+    loop {
+        let Some(req) = socket
+            .next_request(SignalBehavior::Restart)
+            .expect("failed to get request")
+        else {
+            break;
         };
 
-        daemon
-            .ready()
-            .expect("failed to signal sudo scheme readiness");
+        let response = match req.kind() {
+            RequestKind::Call(call) => call.handle_sync(&mut scheme),
+            RequestKind::SendFd(req) => Response::new(scheme.on_sendfd(&socket, &req), req),
+            RequestKind::OnClose { id } => {
+                scheme.on_close(id);
+                continue;
+            }
+            _ => continue,
+        };
 
-        loop {
-            let Some(req) = socket
-                .next_request(SignalBehavior::Restart)
-                .expect("failed to get request")
-            else {
-                break;
-            };
-
-            let response = match req.kind() {
-                RequestKind::Call(call) => call.handle_sync(&mut scheme),
-                RequestKind::SendFd(req) => Response::new(scheme.on_sendfd(&socket, &req), req),
-                RequestKind::OnClose { id } => {
-                    scheme.on_close(id);
-                    continue;
-                }
-                _ => continue,
-            };
-
-            socket
-                .write_response(response, SignalBehavior::Restart)
-                .expect("sudo: scheme write failed");
-        }
-        std::process::exit(0)
-    })
-    .expect("failed to start sudo daemon");
+        socket
+            .write_response(response, SignalBehavior::Restart)
+            .expect("sudo: scheme write failed");
+    }
+    std::process::exit(0)
 }
