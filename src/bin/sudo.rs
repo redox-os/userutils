@@ -275,7 +275,11 @@ impl Scheme {
         match std::mem::replace(handle, Handle::Placeholder) {
             Handle::AwaitingContextFd => {
                 let mut proc_fd = usize::MAX;
-                req.obtain_fd(socket, FobtainFdFlags::empty(), Err(&mut proc_fd))?;
+                req.obtain_fd(
+                    socket,
+                    FobtainFdFlags::empty(),
+                    std::slice::from_mut(&mut proc_fd),
+                )?;
                 let proc_fd = unsafe { OwnedFd::from_raw_fd(proc_fd as RawFd) };
 
                 let [ruid, euid, suid] = [0, 0, 0];

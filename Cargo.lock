@@ -116,7 +116,7 @@ source = "git+https://gitlab.redox-os.org/redox-os/libextra.git#cf213969493db866
 [[package]]
 name = "generic-rt"
 version = "0.1.0"
-source = "git+https://gitlab.redox-os.org/redox-os/relibc#7ed934a01d2ac8ab603b6dc24e918d8197192068"
+source = "git+https://gitlab.redox-os.org/redox-os/relibc#250f072973b96ee2d2ab921b7c2114b5178ec4d1"
 
 [[package]]
 name = "getrandom"
@@ -172,9 +172,9 @@ checksum = "58f929b4d672ea937a23a1ab494143d968337a5f47e56d0815df1e0890ddf174"
 
 [[package]]
 name = "libredox"
-version = "0.1.10"
+version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "416f7e718bdb06000964960ffa43b4335ad4012ae8b99060261aa4a8088d5ccb"
+checksum = "df15f6eac291ed1cf25865b1ee60399f57e7c227e7f51bdbd4c5270396a9ed50"
 dependencies = [
  "bitflags 2.9.4",
  "libc",
@@ -236,22 +236,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "redox-path"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "436d45c2b6a5b159d43da708e62b25be3a4a3d5550d654b72216ade4c4bfd717"
+
+[[package]]
 name = "redox-rt"
 version = "0.1.0"
-source = "git+https://gitlab.redox-os.org/redox-os/relibc#7ed934a01d2ac8ab603b6dc24e918d8197192068"
+source = "git+https://gitlab.redox-os.org/redox-os/relibc#250f072973b96ee2d2ab921b7c2114b5178ec4d1"
 dependencies = [
  "bitflags 2.9.4",
  "generic-rt",
  "goblin",
  "plain",
+ "redox-path",
  "redox_syscall",
 ]
 
 [[package]]
 name = "redox-scheme"
-version = "0.5.0"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a96b9cfb034251dfb0aaa66a67059a7f0ea344039904d1d70cd36266af9c8a2f"
+checksum = "2cea2668a5932f878a4298a1d7f8950249bbbb77120fb263da252c589152f5ea"
 dependencies = [
  "libredox",
  "redox_syscall",
@@ -282,8 +289,8 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.5.17"
-source = "git+https://gitlab.redox-os.org/redox-os/syscall.git#aedadf4d5cb915e0c6a22a5c7358fa853354e21d"
+version = "0.6.0"
+source = "git+https://gitlab.redox-os.org/redox-os/syscall.git#2d11366fd160ec1dd3918164fa324275e1bab070"
 dependencies = [
  "bitflags 2.9.4",
 ]
