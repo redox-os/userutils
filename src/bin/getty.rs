@@ -1,17 +1,18 @@
 #[macro_use]
 extern crate clap;
 
-use std::io::{self, ErrorKind, Stderr};
+use std::error::Error;
+use std::fs::File;
+use std::io::{self, ErrorKind, Read, Stderr, Write};
+use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
 use std::process::{Child, Command, Stdio};
 use std::str;
-
-use std::os::unix::io::{FromRawFd, RawFd};
+use std::time::{Duration, Instant};
 
 use event::{EventFlags, RawEventQueue};
-use libredox::errno::EAGAIN;
-
 use extra::io::fail;
 use libredox::call as redox;
+use libredox::errno::EAGAIN;
 use libredox::flag;
 
 const _MAN_PAGE: &'static str = /* @MANSTART{getty} */
@@ -42,8 +43,8 @@ AUTHOR
     Written by Jeremy Soller.
 "#; /* @MANEND */
 
-const DEFAULT_COLS: u32 = 80;
-const DEFAULT_LINES: u32 = 30;
+const DEFAULT_COLS: u16 = 80;
+const DEFAULT_LINES: u16 = 30;
 
 pub fn handle(
     event_queue: &mut RawEventQueue,
@@ -111,7 +112,7 @@ pub fn handle(
     process.wait().expect("getty: failed to wait on login");
 }
 
-pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
+pub fn getpty(columns: u16, lines: u16) -> (RawFd, String) {
     let master = redox::open(
         "/scheme/pty",
         flag::O_CLOEXEC | flag::O_RDWR | flag::O_CREAT | flag::O_NONBLOCK,
@@ -123,8 +124,8 @@ pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
         let _ = redox::write(
             winsize_fd,
             &redox_termios::Winsize {
-                ws_row: lines as u16,
-                ws_col: columns as u16,
+                ws_row: lines,
+                ws_col: columns,
             },
         );
         let _ = redox::close(winsize_fd);
@@ -137,20 +138,62 @@ pub fn getpty(columns: u32, lines: u32) -> (RawFd, String) {
     })
 }
 
-fn daemon(tty_fd: RawFd, clear: bool, contain: bool, stderr: &mut Stderr) {
-    let (columns, lines) = {
-        let mut path = [0; 4096];
-        if let Ok(count) = redox::fpath(tty_fd as usize, &mut path) {
-            let path_str = str::from_utf8(&path[..count]).unwrap_or("");
-            let reference = path_str.split(':').nth(1).unwrap_or("");
-            let mut parts = reference.split('/').skip(1);
-            let columns = parts.next().unwrap_or("").parse().unwrap_or(DEFAULT_COLS);
-            let lines = parts.next().unwrap_or("").parse().unwrap_or(DEFAULT_LINES);
-            (columns, lines)
-        } else {
-            (DEFAULT_COLS, DEFAULT_LINES)
+// termion cursor_pos prone to error and does not work on nonblocking files
+fn tty_cursor_pos(tty: &mut File) -> Result<(u16, u16), Box<dyn Error>> {
+    write!(tty, "\x1B[6n")?;
+    tty.flush()?;
+
+    let timeout = Duration::from_millis(500);
+    let instant = Instant::now();
+    let mut data = String::new();
+    while instant.elapsed() < timeout {
+        let mut bytes = [0];
+        match tty.read(&mut bytes) {
+            Ok(count) => if count == 1 {
+                let c = bytes[0] as char;
+                if c == 'R' {
+                    break;
+                }
+                data.push(c);
+            },
+            Err(err) => if err.kind() != ErrorKind::WouldBlock {
+                return Err(err.into());
+            }
         }
-    };
+    }
+
+    if data.is_empty() {
+        return Err("cursor position timed out".into());
+    }
+
+    let beg = data.rfind('[').ok_or("failed to find [")?;
+    let coords: String = data.chars().skip(beg + 1).collect();
+    let mut nums = coords.split(';');
+
+    let row = nums.next().ok_or("failed to find row")?.parse::<u16>()?;
+    let col = nums.next().ok_or("failed to find col")?.parse::<u16>()?;
+
+    Ok((col, row))
+}
+
+fn tty_columns_lines(tty: &mut File) -> Result<(u16, u16), Box<dyn Error>> {
+    write!(tty, "{}", termion::cursor::Save)?;
+    tty.flush()?;
+
+    write!(tty, "{}", termion::cursor::Goto(999, 999))?;
+    tty.flush()?;
+
+    let res = tty_cursor_pos(tty);
+
+    write!(tty, "{}", termion::cursor::Restore)?;
+    tty.flush()?;
+
+    res
+}
+
+fn daemon(tty: &mut File, clear: bool, contain: bool, stderr: &mut Stderr) {
+    let (columns, lines) = tty_columns_lines(tty).unwrap_or((DEFAULT_COLS, DEFAULT_LINES));
+    let tty_fd = tty.as_raw_fd();
 
     let (master_fd, pty) = getpty(columns, lines);
 
@@ -226,17 +269,17 @@ pub fn main() {
         vt
     };
 
-    let tty_fd = match redox::open(
+    let mut tty = match redox::open(
         &vt_path,
         flag::O_CLOEXEC | flag::O_RDWR | flag::O_NONBLOCK,
         0,
     ) {
-        Ok(fd) => fd,
+        Ok(fd) => unsafe { File::from_raw_fd(fd as RawFd) },
         Err(err) => fail(
             &format!("getty: failed to open TTY {}: {}", vt_path, err),
             &mut stderr,
         ),
     };
 
-    daemon(tty_fd as RawFd, clear, contain, &mut stderr);
+    daemon(&mut tty, clear, contain, &mut stderr);
 }
