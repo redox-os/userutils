@@ -9,7 +9,7 @@ use extra::option::OptionalExt;
 use libredox::flag::O_CLOEXEC;
 use redox_rt::protocol::ProcCall;
 use redox_rt::sys::proc_call;
-use redox_scheme::scheme::SchemeSync;
+use redox_scheme::scheme::{SchemeSync, register_sync_scheme};
 use redox_scheme::{
     CallerCtx, OpenResult, RequestKind, Response, SendFdRequest, SignalBehavior, Socket,
 };
@@ -157,10 +157,31 @@ enum Handle {
     AwaitingNewPassword { uid: u32 },
 
     Placeholder,
+
+    SchemeRoot,
 }
 
 impl SchemeSync for Scheme {
-    fn open(&mut self, path: &str, _flags: usize, ctx: &CallerCtx) -> Result<OpenResult> {
+    fn scheme_root(&mut self) -> Result<usize> {
+        let fd = self.next_fd;
+        self.next_fd = self.next_fd.checked_add(1).ok_or(Error::new(EMFILE))?;
+        self.handles.insert(fd, Handle::SchemeRoot);
+        Ok(fd)
+    }
+    fn openat(
+        &mut self,
+        dirfd: usize,
+        path: &str,
+        _flags: usize,
+        _fcntl_flags: u32,
+        ctx: &CallerCtx,
+    ) -> Result<OpenResult> {
+        if !matches!(
+            self.handles.get(&dirfd).ok_or(Error::new(EBADF))?,
+            Handle::SchemeRoot
+        ) {
+            return Err(Error::new(EACCES));
+        }
         let fd = self.next_fd;
         self.next_fd = self.next_fd.checked_add(1).ok_or(Error::new(EMFILE))?;
         let handle = match path {
@@ -261,6 +282,11 @@ impl SchemeSync for Scheme {
                 eprintln!("sudo: found placeholder handle with ID {id}");
                 return Err(Error::new(EBADFD));
             }
+
+            Handle::SchemeRoot => {
+                eprintln!("sudo: found Scheme root handle with ID {id}");
+                return Err(Error::new(EBADFD));
+            }
         }
         Ok(buf.len())
     }
@@ -309,12 +335,15 @@ impl Scheme {
 
 fn daemon_main() -> ! {
     // TODO: Linux kernel audit-like logging?
-    let socket = Socket::create("sudo").expect("failed to open scheme socket");
+    let socket = Socket::create().expect("failed to open scheme socket");
 
     let mut scheme = Scheme {
         next_fd: 1,
         handles: HashMap::new(),
     };
+
+    register_sync_scheme(&socket, "sudo", &mut scheme)
+        .expect("failed to register sudo scheme to namespace");
 
     loop {
         let Some(req) = socket
