@@ -1,12 +1,13 @@
 #[macro_use]
 extern crate clap;
 
+use libredox::error::Result;
 use std::fs::File;
 use std::io::{self, Write};
 use std::str;
 
 use extra::option::OptionalExt;
-use redox_users::{All, AllUsers, Config};
+use redox_users::{All, AllUsers, Config, User};
 use termion::input::TermRead;
 use userutils::spawn_shell;
 
@@ -32,6 +33,89 @@ AUTHOR
 
 const ISSUE_FILE: &'static str = "/etc/issue";
 const MOTD_FILE: &'static str = "/etc/motd";
+
+// TODO: Move to redox_users once the definition solidifies.
+const DEFAULT_SCHEMES: [&'static str; 26] = [
+    // Kernel schemes
+    "debug",
+    "event",
+    "memory",
+    "pipe",
+    "serio",
+    "irq",
+    "time",
+    "sys",
+    // Base schemes
+    "rand",
+    "null",
+    "zero",
+    "log",
+    // Network schemes
+    "ip",
+    "icmp",
+    "tcp",
+    "udp",
+    // IPC schemes
+    "shm",
+    "chan",
+    "uds_stream",
+    "uds_dgram",
+    // File schemes
+    "file",
+    // Display schemes
+    "display.vesa",
+    "display*",
+    // Other schemes
+    "pty",
+    "sudo",
+    "audio",
+];
+pub fn apply_login_schemes(
+    user: &User<redox_users::auth::Full>,
+    default_schemes: &[&str],
+) -> Result<libredox::Fd> {
+    let schemes = match load_config_schemes(user) {
+        Some(s) => s,
+        _ => default_schemes.iter().map(|s| s.to_string()).collect(),
+    };
+
+    let mut names: Vec<ioslice::IoSlice> = Vec::with_capacity(schemes.len());
+    for scheme in schemes.iter() {
+        names.push(ioslice::IoSlice::new(scheme.as_bytes()));
+    }
+
+    let ns_fd = libredox::call::mkns(&names)?;
+    let before_ns_fd = libredox::Fd::new(libredox::call::setns(ns_fd)?);
+
+    Ok(before_ns_fd)
+}
+
+fn load_config_schemes(user: &User<redox_users::auth::Full>) -> Option<Vec<String>> {
+    use serde::{Deserialize, Serialize};
+    use std::collections::BTreeMap;
+    use std::fs;
+
+    const LOGIN_SCHEMES_FILE: &'static str = "/etc/login_schemes.toml";
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct UserSchemeConfig {
+        pub schemes: Vec<String>,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct LoginConfig {
+        #[serde(rename = "user_schemes")]
+        pub user_schemes: BTreeMap<String, UserSchemeConfig>,
+    }
+
+    let config_str = fs::read_to_string(LOGIN_SCHEMES_FILE).ok()?;
+    let config: LoginConfig = toml::from_str(&config_str).ok()?;
+
+    config
+        .user_schemes
+        .get(&user.user)
+        .map(|cfg| cfg.schemes.clone())
+}
 
 pub fn main() {
     let mut stdout = io::stdout();
@@ -76,7 +160,19 @@ pub fn main() {
                             stdout.flush().r#try(&mut stderr);
                         }
 
+                        let before_ns_fd =
+                            apply_login_schemes(user, &DEFAULT_SCHEMES).unwrap_or_exit(1);
+
+                        let _ = syscall::fcntl(
+                            before_ns_fd.raw(),
+                            syscall::F_SETFD,
+                            syscall::O_CLOEXEC,
+                        );
                         spawn_shell(user).unwrap_or_exit(1);
+                        let _ = syscall::fcntl(before_ns_fd.raw(), syscall::F_SETFD, 0);
+                        let _ = libredox::call::close(
+                            libredox::call::setns(before_ns_fd.into_raw()).unwrap_or_exit(1),
+                        );
                         break;
                     }
 
