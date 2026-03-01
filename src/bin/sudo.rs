@@ -14,9 +14,9 @@ use redox_scheme::{
     CallerCtx, OpenResult, RequestKind, Response, SendFdRequest, SignalBehavior, Socket,
 };
 use redox_users::{All, AllGroups, AllUsers, Config, get_uid};
+use syscall::error::*;
 use syscall::flag::*;
 use syscall::schemev2::NewFdFlags;
-use syscall::{dup, error::*};
 use termion::input::TermRead;
 
 const MAX_ATTEMPTS: u16 = 3;
@@ -102,7 +102,17 @@ fn main() {
     }
 
     // Elevate privileges of our own process with help from the sudo daemon
-    syscall::sendfd(file, dup(redox_cur_procfd_v0(), &[]).unwrap(), 0, 0).unwrap();
+    syscall::sendfd(
+        file,
+        syscall::dup(redox_cur_procfd_v0(), &[]).unwrap(),
+        0,
+        0,
+    )
+    .unwrap();
+
+    // FIXME perhaps keep the original namespace available in a subdirectory of the namespace we switch to?
+    let ns = syscall::openat(file, "ns", 0, syscall::O_CLOEXEC).unwrap();
+    libredox::call::setns(ns).unwrap();
 
     run_command_as_root(&cmd, &args.collect());
 }
@@ -152,6 +162,7 @@ enum Handle {
     AwaitingPassword { uid: u32 },
     AwaitingRootPassword,
     AwaitingContextFd,
+    AwaitingNamespaceFetch { ns: libredox::Fd },
 
     AwaitingPasswordForPasswd { uid: u32 },
     AwaitingNewPassword { uid: u32 },
@@ -176,20 +187,28 @@ impl SchemeSync for Scheme {
         _fcntl_flags: u32,
         ctx: &CallerCtx,
     ) -> Result<OpenResult> {
-        if !matches!(
-            self.handles.get(&dirfd).ok_or(Error::new(EBADF))?,
-            Handle::SchemeRoot
-        ) {
-            return Err(Error::new(EACCES));
-        }
+        let handle = match self.handles.get_mut(&dirfd).ok_or(Error::new(EBADF))? {
+            Handle::SchemeRoot => match path {
+                "" => Handle::AwaitingPassword { uid: ctx.uid },
+                "su" => Handle::AwaitingRootPassword,
+                "passwd" => Handle::AwaitingPasswordForPasswd { uid: ctx.uid },
+                _ => return Err(Error::new(ENOENT)),
+            },
+            Handle::AwaitingNamespaceFetch { .. } => {
+                if path != "ns" {
+                    return Err(Error::new(ENOENT));
+                }
+                let ns = match self.handles.insert(dirfd, Handle::Placeholder).unwrap() {
+                    Handle::AwaitingNamespaceFetch { ns } => ns,
+                    _ => unreachable!(),
+                };
+                return Ok(OpenResult::OtherScheme { fd: ns.into_raw() });
+            }
+            _ => return Err(Error::new(EINVAL)),
+        };
+
         let fd = self.next_fd;
         self.next_fd = self.next_fd.checked_add(1).ok_or(Error::new(EMFILE))?;
-        let handle = match path {
-            "" => Handle::AwaitingPassword { uid: ctx.uid },
-            "su" => Handle::AwaitingRootPassword,
-            "passwd" => Handle::AwaitingPasswordForPasswd { uid: ctx.uid },
-            _ => return Err(Error::new(ENOENT)),
-        };
         self.handles.insert(fd, handle);
 
         Ok(OpenResult::ThisScheme {
@@ -278,6 +297,11 @@ impl SchemeSync for Scheme {
                 }
             }
 
+            Handle::AwaitingNamespaceFetch { .. } => {
+                eprintln!("sudo: found namespace fetch handle with ID {id}");
+                return Err(Error::new(EBADFD));
+            }
+
             Handle::Placeholder => {
                 eprintln!("sudo: found placeholder handle with ID {id}");
                 return Err(Error::new(EBADFD));
@@ -323,6 +347,12 @@ impl Scheme {
                 ) {
                     eprintln!("failed to setresugid: {err}");
                 }
+
+                *handle = Handle::AwaitingNamespaceFetch {
+                    ns: libredox::Fd::new(
+                        syscall::dup(libredox::call::getns().unwrap(), b"").unwrap(),
+                    ),
+                };
             }
             old => {
                 *handle = old;
