@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate clap;
 
+use core::ptr::slice_from_raw_parts;
 use std::error::Error;
 use std::fs::File;
 use std::io::{self, ErrorKind, Read, Stderr, Write};
@@ -11,6 +12,7 @@ use std::time::{Duration, Instant};
 
 use event::{EventFlags, RawEventQueue};
 use extra::io::fail;
+use libc::{grantpt, ptsname, strlen, unlockpt};
 use libredox::call as redox;
 use libredox::errno::EAGAIN;
 use libredox::flag;
@@ -114,7 +116,7 @@ pub fn handle(
 
 pub fn getpty(columns: u16, lines: u16) -> (RawFd, String) {
     let master = redox::open(
-        "/scheme/pty",
+        "/scheme/pty/ptmx",
         flag::O_CLOEXEC | flag::O_RDWR | flag::O_CREAT | flag::O_NONBLOCK,
         0,
     )
@@ -130,9 +132,12 @@ pub fn getpty(columns: u16, lines: u16) -> (RawFd, String) {
         );
         let _ = redox::close(winsize_fd);
     }
+    let _ = unsafe { grantpt(master as RawFd) };
+    let _ = unsafe { unlockpt(master as RawFd) };
 
-    let mut buf: [u8; 4096] = [0; 4096];
-    let count = redox::fpath(master, &mut buf).unwrap();
+    let name = unsafe { ptsname(master as RawFd) };
+    let count = unsafe { strlen(name) };
+    let buf = unsafe { &*slice_from_raw_parts(name.cast(), count) };
     (master as RawFd, unsafe {
         String::from_utf8_unchecked(Vec::from(&buf[..count]))
     })
@@ -149,15 +154,19 @@ fn tty_cursor_pos(tty: &mut File) -> Result<(u16, u16), Box<dyn Error>> {
     while instant.elapsed() < timeout {
         let mut bytes = [0];
         match tty.read(&mut bytes) {
-            Ok(count) => if count == 1 {
-                let c = bytes[0] as char;
-                if c == 'R' {
-                    break;
+            Ok(count) => {
+                if count == 1 {
+                    let c = bytes[0] as char;
+                    if c == 'R' {
+                        break;
+                    }
+                    data.push(c);
                 }
-                data.push(c);
-            },
-            Err(err) => if err.kind() != ErrorKind::WouldBlock {
-                return Err(err.into());
+            }
+            Err(err) => {
+                if err.kind() != ErrorKind::WouldBlock {
+                    return Err(err.into());
+                }
             }
         }
     }
