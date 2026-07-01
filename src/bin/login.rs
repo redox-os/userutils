@@ -163,13 +163,13 @@ pub fn main() {
                         let before_ns_fd =
                             apply_login_schemes(user, &DEFAULT_SCHEMES).unwrap_or_exit(1);
 
-                        let _ = syscall::fcntl(
+                        let _ = libredox::call::fcntl(
                             before_ns_fd.raw(),
                             syscall::F_SETFD,
-                            syscall::O_CLOEXEC,
+                            libredox::protocol::O_CLOEXEC,
                         );
                         spawn_shell(user).unwrap_or_exit(1);
-                        let _ = syscall::fcntl(before_ns_fd.raw(), syscall::F_SETFD, 0);
+                        let _ = libredox::call::fcntl(before_ns_fd.raw(), syscall::F_SETFD, 0);
                         let _ = libredox::call::close(
                             libredox::call::setns(before_ns_fd.into_raw()).unwrap_or_exit(1),
                         );

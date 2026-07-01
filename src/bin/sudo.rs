@@ -3,17 +3,17 @@ use std::env;
 use std::io::{self, Write};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::process::CommandExt;
-use std::process::{Command, exit};
+use std::process::{exit, Command};
 
 use extra::option::OptionalExt;
 use libredox::flag::O_CLOEXEC;
-use redox_rt::protocol::ProcCall;
+use libredox::protocol::ProcCall;
 use redox_rt::sys::proc_call;
-use redox_scheme::scheme::{SchemeSync, register_sync_scheme};
+use redox_scheme::scheme::{register_sync_scheme, SchemeState, SchemeSync};
 use redox_scheme::{
     CallerCtx, OpenResult, RequestKind, Response, SendFdRequest, SignalBehavior, Socket,
 };
-use redox_users::{All, AllGroups, AllUsers, Config, get_uid};
+use redox_users::{get_uid, All, AllGroups, AllUsers, Config};
 use syscall::error::*;
 use syscall::flag::*;
 use syscall::schemev2::NewFdFlags;
@@ -62,7 +62,7 @@ fn main() {
         run_command_as_root(&cmd, &args.collect());
     }
 
-    let file = libredox::call::open("/scheme/sudo", O_CLOEXEC, 0).unwrap();
+    let file = libredox::Fd::open("/scheme/sudo", libredox::flag::O_CLOEXEC, 0).unwrap();
 
     let mut attempts = 0;
 
@@ -74,7 +74,7 @@ fn main() {
             Some(password) => {
                 println!();
 
-                match libredox::call::write(file, password.as_bytes()) {
+                match file.write(password.as_bytes()) {
                     Ok(_) => break,
                     Err(err) if err.errno() == EPERM => {
                         attempts += 1;
@@ -102,17 +102,18 @@ fn main() {
     }
 
     // Elevate privileges of our own process with help from the sudo daemon
-    syscall::sendfd(
-        file,
-        syscall::dup(redox_cur_procfd_v0(), &[]).unwrap(),
-        0,
-        0,
+    file.call_wo(
+        &libredox::call::dup(redox_cur_procfd_v0(), &[])
+            .unwrap()
+            .to_ne_bytes(),
+        syscall::CallFlags::empty(),
+        &[],
     )
     .unwrap();
 
     // FIXME perhaps keep the original namespace available in a subdirectory of the namespace we switch to?
-    let ns = syscall::openat(file, "ns", 0, syscall::O_CLOEXEC).unwrap();
-    libredox::call::setns(ns).unwrap();
+    let ns = file.openat("ns", O_CLOEXEC, 0).unwrap();
+    libredox::call::setns(ns.into_raw()).unwrap();
 
     run_command_as_root(&cmd, &args.collect());
 }
@@ -350,7 +351,7 @@ impl Scheme {
 
                 *handle = Handle::AwaitingNamespaceFetch {
                     ns: libredox::Fd::new(
-                        syscall::dup(libredox::call::getns().unwrap(), b"").unwrap(),
+                        libredox::call::dup(libredox::call::getns().unwrap(), b"").unwrap(),
                     ),
                 };
             }
@@ -367,6 +368,7 @@ fn daemon_main() -> ! {
     // TODO: Linux kernel audit-like logging?
     let socket = Socket::create().expect("failed to open scheme socket");
 
+    let mut state = SchemeState::new();
     let mut scheme = Scheme {
         next_fd: 1,
         handles: HashMap::new(),
@@ -384,10 +386,11 @@ fn daemon_main() -> ! {
         };
 
         let response = match req.kind() {
-            RequestKind::Call(call) => call.handle_sync(&mut scheme),
+            RequestKind::Call(call) => call.handle_sync(&mut scheme, &mut state),
             RequestKind::SendFd(req) => Response::new(scheme.on_sendfd(&socket, &req), req),
             RequestKind::OnClose { id } => {
                 scheme.on_close(id);
+                state.on_close(id);
                 continue;
             }
             _ => continue,

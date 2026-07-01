@@ -122,7 +122,7 @@ source = "git+https://gitlab.redox-os.org/redox-os/libextra.git#cf213969493db866
 [[package]]
 name = "generic-rt"
 version = "0.1.0"
-source = "git+https://gitlab.redox-os.org/redox-os/relibc#3a8f64aa143184dc11fe1927a4f9e55c33ae3052"
+source = "git+https://gitlab.redox-os.org/redox-os/relibc.git#e8d4ce4822d721d4dafaafa8c04dcbfe626622e7"
 
 [[package]]
 name = "getrandom"
@@ -137,9 +137,9 @@ dependencies = [
 
 [[package]]
 name = "goblin"
-version = "0.7.1"
+version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f27c1b4369c2cd341b5de549380158b105a04c331be5db9110eef7b6d2742134"
+checksum = "17582616a7718cca54cec18e534a76c7c4aec11a8b9a85695712f262fd15a4c8"
 dependencies = [
  "log",
  "plain",
@@ -204,13 +204,14 @@ checksum = "58f929b4d672ea937a23a1ab494143d968337a5f47e56d0815df1e0890ddf174"
 
 [[package]]
 name = "libredox"
-version = "0.1.12"
+version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d0b95e02c851351f877147b7deea7b1afb1df71b63aa5f8270716e0c5720616"
+checksum = "c943259e342f1e06ff2da7a83eabdfe7f92ce10262688dbf1895ff0b3e6e4652"
 dependencies = [
  "bitflags 2.9.4",
  "ioslice",
  "libc",
+ "plain",
  "redox_syscall",
 ]
 
@@ -234,14 +235,13 @@ checksum = "6aa2c4e539b869820a2b82e1aef6ff40aa85e65decdd5185e83fb4b1249cd00f"
 
 [[package]]
 name = "orbclient"
-version = "0.3.48"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ba0b26cec2e24f08ed8bb31519a9333140a6599b867dac464bb150bdb796fd43"
+checksum = "ccbf30fea937f00c68caf77cd6fdf2c6c0616ea88e629c42b56670c0978f8cee"
 dependencies = [
  "libc",
  "libredox",
  "sdl2",
- "sdl2-sys",
 ]
 
 [[package]]
@@ -277,12 +277,13 @@ checksum = "436d45c2b6a5b159d43da708e62b25be3a4a3d5550d654b72216ade4c4bfd717"
 [[package]]
 name = "redox-rt"
 version = "0.1.0"
-source = "git+https://gitlab.redox-os.org/redox-os/relibc#3a8f64aa143184dc11fe1927a4f9e55c33ae3052"
+source = "git+https://gitlab.redox-os.org/redox-os/relibc.git#e8d4ce4822d721d4dafaafa8c04dcbfe626622e7"
 dependencies = [
  "bitflags 2.9.4",
  "generic-rt",
  "goblin",
  "ioslice",
+ "libredox",
  "plain",
  "redox-path",
  "redox_syscall",
@@ -290,9 +291,9 @@ dependencies = [
 
 [[package]]
 name = "redox-scheme"
-version = "0.9.0"
+version = "0.11.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5eb0cee524a5c6e4db180250f699e101ee25f3f79ad2618527e539e028cb6722"
+checksum = "5928b2f572e06a74e9c210fcacf15b70b8ffa6fdb3d8650f4601b83c12fe194b"
 dependencies = [
  "libredox",
  "redox_syscall",
@@ -300,9 +301,9 @@ dependencies = [
 
 [[package]]
 name = "redox_event"
-version = "0.4.3"
+version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c30b73c93693667b5a8e6f54bddcc5a57449ef17c99f4b55c12d5bae4ab79e82"
+checksum = "c5018d583d6d2f5499352aea8d177e9067d1eb03ab17c78169d5ba7a30001b15"
 dependencies = [
  "bitflags 2.9.4",
  "libredox",
@@ -323,9 +324,9 @@ dependencies = [
 
 [[package]]
 name = "redox_syscall"
-version = "0.7.0"
+version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49f3fe0889e69e2ae9e41f4d6c4c0181701d00e4697b356fb1f74173a5e0ee27"
+checksum = "c5102a6aaa05aa011a238e178e6bca86d2cb56fc9f586d37cb80f5bca6e07759"
 dependencies = [
  "bitflags 2.9.4",
 ]
@@ -363,18 +364,18 @@ dependencies = [
 
 [[package]]
 name = "scroll"
-version = "0.11.0"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04c565b551bafbef4157586fa379538366e4385d42082f255bfd96e4fe8519da"
+checksum = "c1257cd4248b4132760d6524d6dda4e053bc648c9070b960929bf50cfb1e7add"
 dependencies = [
  "scroll_derive",
 ]
 
 [[package]]
 name = "scroll_derive"
-version = "0.11.1"
+version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1db149f81d46d2deba7cd3c50772474707729550221e69588478ebf9ada425ae"
+checksum = "ed76efe62313ab6610570951494bdaa81568026e0318eaa55f167de70eeea67d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -383,9 +384,9 @@ dependencies = [
 
 [[package]]
 name = "sdl2"
-version = "0.35.2"
+version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7959277b623f1fb9e04aea73686c3ca52f01b2145f8ea16f4ff30d8b7623b1a"
+checksum = "2d42407afc6a8ab67e36f92e80b8ba34cbdc55aaeed05249efe9a2e8d0e9feef"
 dependencies = [
  "bitflags 1.3.2",
  "lazy_static",
@@ -395,9 +396,9 @@ dependencies = [
 
 [[package]]
 name = "sdl2-sys"
-version = "0.35.2"
+version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3586be2cf6c0a8099a79a12b4084357aa9b3e0b0d7980e3b67aaf7a9d55f9f0"
+checksum = "3ff61407fc75d4b0bbc93dc7e4d6c196439965fbef8e4a4f003a36095823eac0"
 dependencies = [
  "cfg-if",
  "libc",
