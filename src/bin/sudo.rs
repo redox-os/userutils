@@ -106,7 +106,7 @@ fn main() {
         &libredox::call::dup(redox_cur_procfd_v0(), &[])
             .unwrap()
             .to_ne_bytes(),
-        syscall::CallFlags::empty(),
+        syscall::CallFlags::FD,
         &[],
     )
     .unwrap();
