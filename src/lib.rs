@@ -8,7 +8,6 @@
 //!
 //! The included utilities are:
 //!
-//! - `getty`: Used by `init(8)` to open and initialize the TTY line, read a login name and invoke `login(1)`.
 //! - `id`: Displays user identity.
 //! - `login`: Allows users to into the system.
 //! - `passwd`: Allows users to modify their passwords.
