@@ -3,17 +3,16 @@ use std::env;
 use std::io::{self, Write};
 use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
 use std::os::unix::process::CommandExt;
-use std::process::{exit, Command};
+use std::process::{Command, exit};
 
 use extra::option::OptionalExt;
 use libredox::flag::O_CLOEXEC;
 use libredox::protocol::ProcCall;
-use redox_rt::sys::proc_call;
-use redox_scheme::scheme::{register_sync_scheme, SchemeState, SchemeSync};
+use redox_scheme::scheme::{SchemeState, SchemeSync, register_sync_scheme};
 use redox_scheme::{
     CallerCtx, OpenResult, RequestKind, Response, SendFdRequest, SignalBehavior, Socket,
 };
-use redox_users::{get_uid, All, AllGroups, AllUsers, Config};
+use redox_users::{All, AllGroups, AllUsers, Config, get_uid};
 use syscall::error::*;
 use syscall::flag::*;
 use syscall::schemev2::NewFdFlags;
@@ -340,7 +339,7 @@ impl Scheme {
                     .unwrap()
                     .copy_from_slice(&[ruid, euid, suid, rgid, egid, sgid]);
 
-                if let Err(err) = proc_call(
+                if let Err(err) = libredox::call::call_rw(
                     proc_fd.as_raw_fd() as usize,
                     &mut payload,
                     CallFlags::empty(),

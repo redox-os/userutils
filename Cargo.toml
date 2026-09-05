@@ -54,15 +54,12 @@ plain = "0.2.3"
 redox_liner = "0.5.2"
 libredox = { version = "0.1.18", features = ["mkns"] }
 redox-scheme = "0.11.2"
-redox_syscall = "0.9.0"
+redox_syscall = "0.9.4"
 redox_users = "0.4.6"
 termion = "4"
 serde = { version = "1.0.203", features = ["derive"] }
 toml = "0.8.11"
 ioslice = "0.6"
-
-[target.'cfg(target_os = "redox")'.dependencies]
-redox-rt = { git = "https://gitlab.redox-os.org/redox-os/relibc.git", default-features = false }
 
 [profile.release]
 lto = true

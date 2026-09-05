@@ -6,8 +6,8 @@ use std::io::Write;
 use std::process::exit;
 
 use extra::option::OptionalExt;
-use libredox::flag::O_CLOEXEC;
 use libredox::errno::EPERM;
+use libredox::flag::O_CLOEXEC;
 use redox_users::{All, AllUsers, Config, get_uid};
 use termion::input::TermRead;
 
