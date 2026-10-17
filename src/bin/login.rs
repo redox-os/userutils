@@ -165,11 +165,15 @@ pub fn main() {
 
                         let _ = libredox::call::fcntl(
                             before_ns_fd.raw(),
-                            syscall::F_SETFD,
-                            libredox::protocol::O_CLOEXEC,
+                            libredox::flag::F_SETFD as usize,
+                            libredox::flag::O_CLOEXEC as usize,
                         );
                         spawn_shell(user).unwrap_or_exit(1);
-                        let _ = libredox::call::fcntl(before_ns_fd.raw(), syscall::F_SETFD, 0);
+                        let _ = libredox::call::fcntl(
+                            before_ns_fd.raw(),
+                            libredox::flag::F_SETFD as usize,
+                            0,
+                        );
                         let _ = libredox::call::close(
                             libredox::call::setns(before_ns_fd.into_raw()).unwrap_or_exit(1),
                         );
