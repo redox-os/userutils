@@ -254,7 +254,7 @@ dependencies = [
 [[package]]
 name = "redox_syscall"
 version = "0.9.4"
-source = "git+https://gitlab.redox-os.org/redox-os/kernel.git#7a7353f22bdfbc0156b1b63102244b776d05c511"
+source = "git+https://gitlab.redox-os.org/redox-os/kernel.git#260f55f076d2fe62c03ec30c1378ca7546336c73"
 dependencies = [
  "bitflags 2.13.2",
 ]
